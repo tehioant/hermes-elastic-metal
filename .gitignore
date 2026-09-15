@@ -21,7 +21,7 @@ override.tf.json
 *.pem
 *.key
 restic.env
-restic-password
+.restic-password
 
 # macOS / editors
 .DS_Store

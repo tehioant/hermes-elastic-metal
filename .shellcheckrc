@@ -1,0 +1,3 @@
+# SC1091: sourced files (/etc/os-release, /etc/restic/env) only exist on the host
+# SC2029: client-side expansion in ssh command strings is intentional
+disable=SC1091,SC2029

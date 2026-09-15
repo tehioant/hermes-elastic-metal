@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply DOCKER-USER firewall rules
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/docker/docker-user-rules.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
