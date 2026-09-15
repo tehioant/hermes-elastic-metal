@@ -1,0 +1,11 @@
+[Unit]
+Description=Restic backup to Scaleway Object Storage
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+EnvironmentFile=/etc/restic/env
+ExecStart=/usr/local/sbin/backup.sh

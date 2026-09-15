@@ -1,0 +1,7 @@
+[Unit]
+Description=Host health check (RAID, SMART, disk, memory, containers, RAS)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/healthcheck.sh
