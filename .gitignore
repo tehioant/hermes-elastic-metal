@@ -1,0 +1,30 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+.envrc
+!.envrc.example
+*.pem
+*.key
+restic.env
+restic-password
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
