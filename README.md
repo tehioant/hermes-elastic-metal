@@ -1,4 +1,4 @@
-# hermes — Docker host on Scaleway Elastic Metal
+# hermes-elastic-metal — Docker host on Scaleway Elastic Metal
 
 Infrastructure as code for a single bare-metal Docker host (`emeta-01`,
 EM-A116X-SSD, Ubuntu 26.04 LTS, `fr-par-2`) that runs the self-hosted Hermes
