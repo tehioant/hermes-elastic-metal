@@ -23,7 +23,9 @@ resource "scaleway_object_bucket" "backup" {
 resource "scaleway_object_bucket_lock_configuration" "backup" {
   provider = scaleway.backup
 
-  bucket = scaleway_object_bucket.backup.name
+  bucket     = scaleway_object_bucket.backup.name
+  region     = var.backup_region
+  project_id = scaleway_object_bucket.backup.project_id
 
   rule {
     default_retention {
@@ -33,17 +35,23 @@ resource "scaleway_object_bucket_lock_configuration" "backup" {
   }
 }
 
+locals {
+  # IAM application/policy tags reject ":"; the bucket resource uses the same
+  # var.tags list but converts it to a map instead.
+  iam_tags = [for t in var.tags : replace(t, ":", "=")]
+}
+
 resource "scaleway_iam_application" "backup" {
   name        = "${var.hostname}-restic"
   description = "restic on ${var.hostname}: object storage access limited to the project"
-  tags        = var.tags
+  tags        = local.iam_tags
 }
 
 resource "scaleway_iam_policy" "backup" {
   name           = "${var.hostname}-restic"
   description    = "Read/write/delete objects for restic. Ransomware guard is versioning + Object Lock, not IAM."
   application_id = scaleway_iam_application.backup.id
-  tags           = var.tags
+  tags           = local.iam_tags
 
   rule {
     project_ids = [scaleway_object_bucket.backup.project_id]
@@ -60,6 +68,13 @@ resource "scaleway_iam_api_key" "backup" {
   application_id     = scaleway_iam_application.backup.id
   description        = "restic on ${var.hostname}"
   default_project_id = scaleway_object_bucket.backup.project_id
+  # Org policy requires an expiration date. Rotate quarterly per docs/runbooks/maintenance.md;
+  # ignore_changes keeps `terraform plan` clean between rotations (timestamp() changes every run).
+  expires_at = timeadd(timestamp(), "8760h") # ~1 year
+
+  lifecycle {
+    ignore_changes = [expires_at]
+  }
 }
 
 output "restic_repository" {
