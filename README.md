@@ -7,11 +7,16 @@ a restic backup stored in Scaleway Object Storage in another region.
 
 ## Quick start
 
+First create the private state bucket and configure credentials as described in
+[the state runbook](docs/runbooks/terraform-state.md). If this server already
+exists, migrate its **existing** local state before running any new plan.
+
 ```bash
 cp .env.example .env && $EDITOR .env && source .env
 cd terraform
 cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
-terraform init && terraform plan -out=tfplan
+terraform init -backend-config="bucket=${STATE_BUCKET:?set the state bucket}"
+terraform plan -out=tfplan
 terraform apply tfplan                      # ~15–30 min bare-metal install
 cd ..
 ./scripts/ship.sh "$(terraform -chdir=terraform output -raw ipv4)"
@@ -24,7 +29,7 @@ context.
 
 ## Layout
 
-- `terraform/` — server, SSH key, backup bucket, IAM key (local state)
+- `terraform/` — server, SSH key, backup bucket, IAM key (locked remote state)
 - `scripts/` — `bootstrap.sh` (idempotent host setup), `backup.sh`,
   `restore-drill.sh`, `healthcheck.sh`, `ship.sh`
 - `config/` — files installed verbatim on the host

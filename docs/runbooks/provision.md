@@ -13,6 +13,8 @@ scw baremetal os list zone=fr-par-2 | grep 26.04            # version string mat
 ```
 
 Confirm the Hermes image is not built for `x86-64-v3` (the CPU has no AVX2).
+Set up the private, versioned, encrypted state bucket and its credentials as
+described in [terraform-state.md](terraform-state.md) before initializing.
 
 ## 1. Terraform
 
@@ -20,7 +22,7 @@ Confirm the Hermes image is not built for `x86-64-v3` (the CPU has no AVX2).
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars            # ssh_public_key, admin_cidrs (curl -4 ifconfig.me)
-terraform init
+terraform init -backend-config="bucket=${STATE_BUCKET:?set the state bucket}"
 terraform plan -out=tfplan          # expect 7 to add, 0 to change, 0 to destroy
 terraform apply tfplan
 ```

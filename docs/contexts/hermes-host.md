@@ -10,7 +10,9 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
 ## Layout
 - `terraform/` — `server.tf` (offer/OS lookup, SSH key, server with
   `prevent_destroy`), `backup.tf` (bucket + versioning + Object Lock COMPLIANCE
-  35d, IAM app/policy/key), local state (`terraform.tfstate`, gitignored).
+  35d, IAM app/policy/key), remote locked state in a separate private bucket.
+  Existing installations must migrate the local state first; see
+  `docs/runbooks/terraform-state.md`.
 - `scripts/bootstrap.sh` — idempotent, run as root once then as `ops` via sudo.
   Installs files from `config/` and `systemd/` with `install_if_changed`.
 - `scripts/ship.sh <user@host>` — tars `scripts config systemd` to `/tmp/hermes`
