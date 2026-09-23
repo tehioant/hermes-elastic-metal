@@ -17,6 +17,20 @@ export AWS_ACCESS_KEY_ID="$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$SCW_SECRET_KE
 The key needs bucket listing, state read/write and lockfile
 read/write/delete. CI gets the same values from repository secrets.
 
+## One-time bucket setup
+
+Create a **dedicated private** Object Storage bucket in `nl-ams`, separate from
+the restic backup bucket. Enable versioning and default SSE-ONE encryption at
+rest **before** migrating (enabling it later does not encrypt old versions).
+Deny non-TLS access with a bucket policy, while preserving the deployer's
+required access. Do not enable Object Lock retention on this bucket: Terraform
+must be able to delete its temporary `.tflock` object. Record the bucket name
+as a repository/environment variable, not a secret. Use separate, narrowly
+scoped Object Storage credentials for state access; never use the restic IAM
+key. The key needs bucket listing, state read/write, and lockfile
+read/write/delete. Scaleway Object Storage supports the conditional writes
+needed for Terraform's `use_lockfile` locking.
+
 ## Bucket setup (once)
 
 Keep the bucket private with versioning and SSE-ONE encryption enabled
