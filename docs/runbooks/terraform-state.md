@@ -10,18 +10,29 @@ existing state has been migrated and verified.
 
 Create a **dedicated private** Object Storage bucket in `nl-ams`, separate from
 the restic backup bucket. Enable versioning and default SSE-ONE encryption at
-rest. Do not enable Object Lock retention on this bucket: Terraform must be
-able to delete its temporary `.tflock` object. Record the bucket name as a
-repository/environment variable, not a secret. Use separate, narrowly scoped
-Object Storage credentials for state access; never use the restic IAM key.
-Scaleway Object Storage supports the conditional writes needed for Terraform's
-`use_lockfile` locking.
+rest **before** migrating (enabling it later does not encrypt old versions).
+Deny non-TLS access with a bucket policy, while preserving the deployer's
+required access. Do not enable Object Lock retention on this bucket: Terraform
+must be able to delete its temporary `.tflock` object. Record the bucket name
+as a repository/environment variable, not a secret. Use separate, narrowly
+scoped Object Storage credentials for state access; never use the restic IAM
+key. The key needs bucket listing, state read/write, and lockfile
+read/write/delete. Scaleway Object Storage supports the conditional writes
+needed for Terraform's `use_lockfile` locking.
 
 ## Migrate on the computer holding the real local state
 
 Before switching to the new backend, make a private encrypted backup of
 `terraform/terraform.tfstate` (and any `.backup` file) outside the repository.
-Verify the state is not empty and includes `scaleway_baremetal_server.this`.
+In the **old local-state checkout**, verify the state is not empty and includes
+`scaleway_baremetal_server.this`; record its lineage, serial and resource
+addresses without printing the state or its secret outputs:
+
+```bash
+terraform -chdir=terraform state list
+terraform -chdir=terraform state pull | python3 -c 'import json,sys; s=json.load(sys.stdin); print("lineage:",s["lineage"],"serial:",s["serial"],"resources:",len(s["resources"]))'
+```
+
 Have your normal `SCW_*` provider credentials and dedicated S3-compatible
 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for the state bucket in your
 local environment. Do not pass credentials with `-backend-config` or store
@@ -35,11 +46,13 @@ umask 077
 : "${STATE_BUCKET:?set the private state bucket name}"
 terraform -chdir=terraform init -migrate-state -backend-config="bucket=${STATE_BUCKET}"
 terraform -chdir=terraform state list
+terraform -chdir=terraform state pull | python3 -c 'import json,sys; s=json.load(sys.stdin); print("lineage:",s["lineage"],"serial:",s["serial"],"resources:",len(s["resources"]))'
 terraform -chdir=terraform plan -lock-timeout=10m -out=tfplan
 terraform -chdir=terraform show tfplan
 ```
 
-Confirm that `state list` still contains the existing server, bucket and IAM
+Confirm that the lineage and managed resource addresses match the pre-migration
+state, `state list` still contains the existing server, bucket and IAM
 resources, the S3 bucket contains a versioned encrypted state object at
 `hermes-elastic-metal/terraform.tfstate`, and the plan has **only** intended
 changes. Do not apply a plan that proposes a replacement or duplicates the
