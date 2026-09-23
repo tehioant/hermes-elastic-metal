@@ -103,14 +103,8 @@ harden_ssh() {
 }
 
 configure_firewall() {
-  log "configuring ufw (ssh from ${ADMIN_CIDRS}) and DOCKER-USER chain"
-  ufw --force reset >/dev/null
-  ufw default deny incoming >/dev/null
-  ufw default allow outgoing >/dev/null
-  for cidr in ${ADMIN_CIDRS//,/ }; do
-    ufw allow from "${cidr}" to any port 22 proto tcp >/dev/null
-  done
-  ufw --force enable >/dev/null
+  log "configuring ufw (ssh from ${ADMIN_CIDRS} and tailscale0) and DOCKER-USER chain"
+  bash "${REPO_DIR}/scripts/firewall.sh"
 
   install_if_changed "${REPO_DIR}/config/docker/docker-user-rules.sh" /etc/docker/docker-user-rules.sh 0755 || true
   touch /etc/docker/published-ports.allow
