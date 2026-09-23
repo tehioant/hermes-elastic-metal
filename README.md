@@ -15,7 +15,8 @@ exists, migrate its **existing** local state before running any new plan.
 cp .env.example .env && $EDITOR .env && source .env
 cd terraform
 cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
-terraform init && terraform plan -out=tfplan
+terraform init -backend-config="bucket=${STATE_BUCKET:?set the state bucket}"
+terraform plan -out=tfplan
 terraform apply tfplan                      # ~15–30 min bare-metal install
 cd ..
 ./scripts/ship.sh "$(terraform -chdir=terraform output -raw ipv4)"
