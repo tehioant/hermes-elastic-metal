@@ -41,3 +41,6 @@ context.
 - Changing `os` reinstalls the server; changing `offer` recreates it
   (`prevent_destroy` guards against that).
 - CPU is Sandy Bridge: no AVX2. Images built for `x86-64-v3` crash with `SIGILL`.
+- Applying `terraform/domain.tf` purchases and auto-renews the dashboard domain.
+  Review the plan and registrar price before applying; see
+  [the domain runbook](docs/runbooks/dashboard-domain.md).
