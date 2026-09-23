@@ -45,6 +45,9 @@ restic.env
 restic-password
 .restic-password
 
+# Python test caches
+__pycache__/
+
 # macOS / editors
 .DS_Store
 .idea/
