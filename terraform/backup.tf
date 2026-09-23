@@ -6,6 +6,10 @@ resource "scaleway_object_bucket" "backup" {
   tags                = { for t in var.tags : split(":", t)[0] => split(":", t)[1] }
   object_lock_enabled = true
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   versioning {
     enabled = true
   }
