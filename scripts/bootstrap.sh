@@ -85,11 +85,8 @@ create_docker_user() {
 
   local ssh_dir="/home/${DOCKER_USER}/.ssh"
   install -d -m 0700 -o "${DOCKER_USER}" -g "${DOCKER_USER}" "${ssh_dir}"
-  # Cloud images set a forced-command restriction on root's authorized_keys
-  # entries (blocks direct root login); strip any leading key-options so it
-  # is not carried over to the ops user.
-  grep -oE '(ssh-[a-z0-9]+|ecdsa-sha2-[a-z0-9-]+) .*' /root/.ssh/authorized_keys \
-    > "${ssh_dir}/authorized_keys"
+  bash "${REPO_DIR}/scripts/sync_ops_keys.sh" \
+    /root/.ssh/authorized_keys /etc/hermes/deploy.pub "${ssh_dir}/authorized_keys"
   chmod 0600 "${ssh_dir}/authorized_keys"
   chown "${DOCKER_USER}:${DOCKER_USER}" "${ssh_dir}/authorized_keys"
 }
