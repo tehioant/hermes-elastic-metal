@@ -14,6 +14,11 @@ readonly REMOTE_DIR="/tmp/hermes"
 tf_output() { terraform -chdir="${REPO_DIR}/terraform" output -raw "$1"; }
 
 read_restic_password() {
+  if [[ -v RESTIC_PASSWORD ]]; then
+    printf '%s' "${RESTIC_PASSWORD:?RESTIC_PASSWORD must not be empty}"
+    return
+  fi
+
   local file="${REPO_DIR}/.restic-password"
   if [[ ! -f "${file}" ]]; then
     umask 077
@@ -28,7 +33,7 @@ remote_sudo() {
 }
 
 main() {
-  local admin_cidrs restic_repository restic_password access_key secret_key
+  local admin_cidrs restic_repository restic_password access_key secret_key remote_environment
   admin_cidrs="$(tf_output admin_cidrs)"
   restic_repository="$(tf_output restic_repository)"
   access_key="$(tf_output backup_access_key)"
@@ -40,15 +45,9 @@ main() {
     | ssh "${TARGET}" "rm -rf ${REMOTE_DIR} && mkdir -p ${REMOTE_DIR} && tar -xzf - -C ${REMOTE_DIR}"
 
   printf '🔧 running bootstrap on %s\n' "${TARGET}"
-  # Heredoc expands client-side on purpose: it carries the secrets to the remote env.
-  # shellcheck disable=SC2087
-  ssh "${TARGET}" "$(remote_sudo)bash -c 'set -a; source /dev/stdin; set +a; exec bash ${REMOTE_DIR}/scripts/bootstrap.sh </dev/null'" <<EOF
-ADMIN_CIDRS='${admin_cidrs}'
-RESTIC_REPOSITORY='${restic_repository}'
-RESTIC_PASSWORD='${restic_password}'
-AWS_ACCESS_KEY_ID='${access_key}'
-AWS_SECRET_ACCESS_KEY='${secret_key}'
-EOF
+  printf -v remote_environment 'ADMIN_CIDRS=%q\nRESTIC_REPOSITORY=%q\nRESTIC_PASSWORD=%q\nAWS_ACCESS_KEY_ID=%q\nAWS_SECRET_ACCESS_KEY=%q\n' \
+    "${admin_cidrs}" "${restic_repository}" "${restic_password}" "${access_key}" "${secret_key}"
+  ssh "${TARGET}" "$(remote_sudo)bash -c 'set -a; source /dev/stdin; set +a; exec bash ${REMOTE_DIR}/scripts/bootstrap.sh </dev/null'" <<< "${remote_environment}"
 }
 
 main "$@"
