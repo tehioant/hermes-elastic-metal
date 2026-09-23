@@ -1,0 +1,61 @@
+name: Deploy Terraform
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 90
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      EXPECTED_STATE_LINEAGE: ${{ vars.EXPECTED_STATE_LINEAGE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.STATE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.STATE_SECRET_KEY }}
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      SCW_DEFAULT_PROJECT_ID: ${{ vars.SCW_PROJECT_ID }}
+      SCW_DEFAULT_ORGANIZATION_ID: ${{ vars.SCW_ORGANIZATION_ID }}
+      TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+      TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS_JSON }}
+      TF_VAR_domain_owner: ${{ secrets.DOMAIN_OWNER_JSON }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in STATE_BUCKET EXPECTED_STATE_LINEAGE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY SCW_ACCESS_KEY SCW_SECRET_KEY SCW_DEFAULT_PROJECT_ID SCW_DEFAULT_ORGANIZATION_ID TF_VAR_ssh_public_key TF_VAR_admin_cidrs TF_VAR_domain_owner; do
+            if [[ -z "${!name:-}" ]]; then
+              printf '::error::Missing production environment setting: %s\n' "$name"
+              exit 1
+            fi
+          done
+      - name: Apply verified plan against migrated state
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan_path="${RUNNER_TEMP}/terraform.tfplan"
+          trap 'rm -f "$plan_path"' EXIT
+          terraform -chdir=terraform init -input=false -backend-config="bucket=${STATE_BUCKET}" -no-color
+          terraform -chdir=terraform state pull | python3 scripts/deployment_guards.py state
+          terraform -chdir=terraform plan -input=false -lock-timeout=10m -no-color -out="$plan_path"
+          terraform -chdir=terraform show -json "$plan_path" | python3 scripts/deployment_guards.py plan
+          terraform -chdir=terraform apply -input=false -lock-timeout=10m -no-color "$plan_path"
