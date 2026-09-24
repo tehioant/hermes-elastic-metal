@@ -11,7 +11,7 @@ rebuild. Tighten RPO by editing `systemd/restic-backup.timer`
 | Docker named volumes | `/var/lib/docker/volumes` | tar per volume → restic |
 | Host config | `/etc` | restic |
 | Compose / stack definitions | git | source of truth, not a backup |
-| Terraform state | `terraform/terraform.tfstate` (local) | **back it up yourself** (see below) |
+| Terraform state | Private, versioned `nl-ams` state bucket (key `hermes-elastic-metal/terraform.tfstate`) | encrypted versioning + separate protected backup |
 | Restic password | `.restic-password` + password manager | without it backups are lost |
 
 Restic repo: `s3:https://s3.nl-ams.scw.cloud/hermes-backup-emeta-01`, tag
@@ -24,10 +24,23 @@ markers; the locked versions survive a compromised host key.
 
 ## Terraform state
 
-Local state is a single point of failure for `terraform plan`. After every
-apply, copy `terraform/terraform.tfstate` somewhere safe (password manager
-attachment or encrypted cloud drive). Losing it is recoverable with
-`terraform import` but tedious.
+The [migration runbook](terraform-state.md) makes the private remote bucket
+the **authoritative** state; the laptop's original `terraform.tfstate` is
+only an encrypted pre-migration backup, not something to copy after each
+apply. Keep a separate encrypted, access-restricted backup of the remote
+state and protect access to the bucket's previous versions. State can contain
+IAM secrets, registrant details and a domain transfer code: never attach it
+to chat, issues or PRs.
+
+If state is lost or corrupt, freeze manual and GitHub applies first. Preserve
+the current remote object and its versions. Recover the last known-good
+version of `hermes-elastic-metal/terraform.tfstate` through the storage console
+under a trusted operator account, keeping bucket versioning and encryption
+intact. Reinitialize Terraform against the same bucket, check lineage and
+resource addresses with the [read-only state guard](terraform-state.md), then
+review a new plan before unfreezing deployment. Never start with an empty
+backend or use `-lock=false`; importing resources is a last-resort manual
+recovery path if all protected state copies are lost.
 
 ## Monthly restore drill (mandatory)
 
@@ -54,15 +67,23 @@ rm -rf /tmp/restore
 
 ## Full host rebuild
 
-1. **Reinstall the same server** (keeps IP):
-   `scw baremetal server install <server-id> os-id=<os-id> ssh-key-ids.0=<key-id> zone=fr-par-2`
-   — or, if the hardware is dead, order a new one: temporarily set
-   `prevent_destroy = false`, `terraform apply -replace=scaleway_baremetal_server.this`,
-   then restore `prevent_destroy`. The IP changes; update `admin_cidrs` if needed.
+1. Freeze GitHub deployment while rebuilding. **Reinstall the same server**
+   (keeps IP): `scw baremetal server install <server-id> os-id=<os-id> ssh-key-ids.0=<key-id> zone=fr-par-2`
+   — or, if hardware is dead, order a new one through a deliberately reviewed
+   manual Terraform recovery. The automatic CD plan guard rejects deletion and
+   replacement, and `prevent_destroy` must only be disabled temporarily in a
+   controlled recovery checkout. The IP changes; update DNS and admin CIDRs.
 2. Wait for SSH as root (15–30 min).
 3. `scripts/ship.sh root@<ip>` — bootstrap reuses the existing restic repo
-   (`restic cat config` succeeds, so no `init`).
-4. Restore volumes:
+   (`restic cat config` succeeds, so no `init`). Confirm the Terraform
+   `ssh_public_key` is the explicitly trusted `ops` admin key before shipping.
+4. Install and re-enroll Tailscale as the tagged host, restore the dedicated
+   CI deploy public key in `/etc/hermes/deploy.pub`, and rerun
+   `scripts/ship.sh ops@<ip>` to authorize it. A rebuilt host may have a
+   **new** SSH host key: verify it out of band before updating
+   `SSH_KNOWN_HOSTS` in GitHub; never accept a fresh `ssh-keyscan` blindly.
+   Test personal and CI `ops` access before re-enabling CD.
+5. Restore volumes:
    ```bash
    sudo bash -c 'set -a; . /etc/restic/env; restic restore latest --target /tmp/restore --include /var/backups/docker'
    for f in /tmp/restore/var/backups/docker/*.tar.gz; do
@@ -71,8 +92,9 @@ rm -rf /tmp/restore
      docker run --rm -v "$v:/target" -v /tmp/restore/var/backups/docker:/src:ro busybox:1.37 tar xzf "/src/$v.tar.gz" -C /target
    done
    ```
-5. Redeploy stacks from git: `docker compose up -d`.
-6. Run `healthcheck.sh` and the restore drill; confirm the next timer fires.
+6. Redeploy stacks from git: `docker compose up -d`.
+7. Run `healthcheck.sh` and the restore drill; confirm the next timer fires.
+   Re-enable CD only after reviewing a new plan against the recovered state.
 
 ## Losing the restic password
 
