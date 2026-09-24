@@ -3,41 +3,43 @@
 Terraform registers `tehio.eu` with Scaleway for one year, enables annual
 auto-renewal, and creates an A record for `apollo.tehio.eu` pointing to the
 Elastic Metal server's public IPv4. The registered domain and subdomain can
-be changed in `terraform.tfvars` before purchase. A DNS record alone does not
+be changed in Terraform code before purchase. The auto-CD runner does not read
+your laptop’s `terraform.tfvars`. A DNS record alone does not
 start the dashboard, open a firewall port, or provide HTTPS/authentication.
 
 ## Before applying
 
 1. Search for `tehio.eu` in Scaleway **Domains and DNS**. If unavailable,
-   choose an available name and set `dashboard_domain_name` in your ignored
-   `terraform/terraform.tfvars`. Do not choose a name based on DNS lookup alone.
-2. Fill `domain_owner` in the ignored `terraform/terraform.tfvars` with the
-   real eligible registrant's details. Scaleway may require contact/email
-   verification after registration. Do not commit personal information or
-   put it in command-line arguments.
+   choose an available name and change `dashboard_domain_name` in a reviewed
+   Terraform PR (and your local tfvars, if used). Do not choose a name based
+   on DNS lookup alone.
+2. Supply the real eligible registrant in the ignored local tfvars and, for
+   auto-CD, the GitHub `production` environment secret `DOMAIN_OWNER_JSON`.
+   Scaleway may require contact/email verification after registration. Do not
+   commit personal information or put it in command-line arguments.
 3. Confirm that the selected domain's registration and renewal prices, tax,
    account balance/payment method, and annual auto-renewal are acceptable.
-   `terraform apply` makes a **paid domain purchase**; obtaining approval for
-   the plan is not approval to apply it automatically.
-4. **Do not apply until state storage is secured.** The registration resource
-   writes registrant details and an EPP/transfer code into local Terraform state.
-   Keep the checkout and its plan/state files accessible only to the operator,
-   use encrypted storage and encrypted, access-restricted backups, and never
-   commit or share state/plan files. The repository's `.gitignore` prevents
-   accidental Git tracking but does not encrypt the files.
+   **A merge to `main` can purchase the domain automatically** once CD is
+   enabled, without another approval step. Review cost and eligibility before
+   merging this PR; the workflow has no price ceiling.
+4. **Do not merge/apply until the existing laptop state is migrated** using
+   [the locked-state guide](terraform-state.md) in PR #3. The registration
+   resource writes registrant details and an EPP/transfer code into Terraform
+   state. Use a private, versioned, encrypted backend and protected backups;
+   never commit or share state/plan files. `.gitignore` does not encrypt them.
 
-From the repository root, with your existing Scaleway credentials and local
-Terraform state available (on protected storage):
+For an optional manual review on your trusted laptop, using the **same
+migrated state and variables** as CD:
 
 ```bash
 umask 077
-terraform -chdir=terraform init
+terraform -chdir=terraform init -backend-config="bucket=${STATE_BUCKET:?set the private state bucket}"
 terraform -chdir=terraform fmt -check
 terraform -chdir=terraform validate
 terraform -chdir=terraform plan -out=tfplan
 terraform -chdir=terraform show tfplan
-# Apply only after explicitly checking the domain, price and all other changes.
-terraform -chdir=terraform apply tfplan
+# Manual apply is optional; once CD is enabled, merge-to-main applies automatically.
+# terraform -chdir=terraform apply tfplan
 ```
 
 ## Verify

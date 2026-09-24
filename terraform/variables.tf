@@ -83,7 +83,7 @@ variable "dashboard_subdomain" {
 }
 
 variable "domain_owner" {
-  description = "Individual domain registrant. Supply in gitignored terraform.tfvars; details are stored in local Terraform state."
+  description = "Individual domain registrant. Supply in ignored tfvars or TF_VAR_domain_owner; details are stored in Terraform state."
   type = object({
     firstname      = string
     lastname       = string
