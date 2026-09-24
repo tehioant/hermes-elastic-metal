@@ -86,7 +86,7 @@ create_docker_user() {
   local ssh_dir="/home/${DOCKER_USER}/.ssh"
   install -d -m 0700 -o "${DOCKER_USER}" -g "${DOCKER_USER}" "${ssh_dir}"
   bash "${REPO_DIR}/scripts/sync_ops_keys.sh" \
-    /root/.ssh/authorized_keys /etc/hermes/deploy.pub "${ssh_dir}/authorized_keys"
+    /etc/hermes/ops.pub /etc/hermes/deploy.pub "${ssh_dir}/authorized_keys"
   chmod 0600 "${ssh_dir}/authorized_keys"
   chown "${DOCKER_USER}:${DOCKER_USER}" "${ssh_dir}/authorized_keys"
 }
