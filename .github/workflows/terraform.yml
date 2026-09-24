@@ -21,5 +21,5 @@ jobs:
         run: terraform -chdir=terraform init -backend=false -input=false
       - name: Validate configuration
         run: terraform -chdir=terraform validate -no-color
-      - name: Test ops key and shipping safeguards
-        run: python3 -m unittest discover -s tests -p 'test_*ops*.py' -v
+      - name: Test repository scripts
+        run: python3 -m unittest discover -s tests -v
