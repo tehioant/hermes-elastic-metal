@@ -19,16 +19,16 @@ jobs:
         run: terraform -chdir=terraform fmt -check -recursive
       - name: Initialize
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.STATE_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.STATE_AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
           STATE_BUCKET: ${{ vars.STATE_BUCKET }}
         run: terraform -chdir=terraform init -input=false -backend-config="bucket=${STATE_BUCKET:?STATE_BUCKET variable is not set}"
       - name: Validate configuration
         run: terraform -chdir=terraform validate -no-color
       - name: Plan
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.STATE_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.STATE_AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_DEFAULT_PROJECT_ID }}
