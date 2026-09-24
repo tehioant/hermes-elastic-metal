@@ -1,6 +1,6 @@
-# Automatic Terraform deployment
+# Automatic infrastructure and host deployment
 
-The `Deploy Terraform` workflow runs on each merge to `main` (and on manual
+The `Deploy infrastructure and host` workflow runs on each merge to `main` (and on manual
 `workflow_dispatch`). It automatically applies **the same saved plan it
 validated**. This includes the paid `tehio.eu` registration and annual
 renewal configuration when the domain PR is merged. There is no per-merge
@@ -46,16 +46,21 @@ Terraform does not deploy the dashboard or expose a web port.
    or domain. A Terraform apply can purchase a domain **without a separate
    confirmation**. Keep the repository's domain defaults (`tehio.eu` and
    `apollo`) aligned with what you approve; a change needs a reviewed PR.
-6. Confirm `production` has **no required reviewers** if every merge should
-   deploy automatically. Restrict who can push/merge to `main` and require the
-   PR validation check; otherwise a merge can spend money or change your
-   infrastructure. Do not enable deployment until all settings and remote
-   state are verified.
+6. Complete the [host shipping prerequisites](host-shipping.md): private
+   Tailscale access, pinned SSH host key, dedicated CI key, unchanged restic
+   password, and the non-resetting firewall and backup guards. These are
+   checked **before** Terraform apply wherever possible. Confirm `production`
+   has **no required reviewers** if every merge should deploy automatically.
+   Restrict who can push/merge to `main` and require the PR validation check;
+   otherwise a merge can spend money or change your infrastructure. Do not
+   enable deployment until all settings and remote state are verified.
 
 ## What the workflow does
 
-- Runs on a fresh GitHub-hosted runner with read-only repository access and
-  per-environment credentials. Concurrent deploys are serialized.
+- Runs on a fresh GitHub-hosted runner with per-environment credentials. It
+  requests a short-lived OIDC token solely to join the restricted tailnet,
+  verifies the pinned host key and `ops` sudo access, then proceeds. Concurrent
+  deploys are serialized.
 - Fails before planning if any setting is missing or if the remote state
   lineage/resources do not match the existing server and backup bucket. It
   **never** initializes an empty state as if it were a new installation.
@@ -63,15 +68,18 @@ Terraform does not deploy the dashboard or expose a web port.
   including local ones. It plans once, rejects any delete/replacement action,
   applies that exact saved plan, and deletes the local plan on exit. Plans and
   state are never uploaded as artifacts.
+- After a successful apply, ships the same checkout to `ops` over Tailscale,
+  reruns bootstrap with the stable restic password, and checks Docker and
+  backup/healthcheck timers. It does **not** expose the dashboard or port 9119.
 - Failed jobs stop. Fix the configuration or drift, then use **Run workflow**
   on `main`; it creates a fresh plan. Never use `-lock=false` to bypass a
   concurrent apply. If a run fails during apply, inspect the remote state and
   a new plan before retrying.
 
-**Host bootstrap/shipping is a separate increment.** A GitHub-hosted runner's
-changing IP cannot reach the current SSH allowlist. Do not open SSH to the
-internet or attach a persistent self-hosted GitHub runner to this public repo;
-use a restricted private network path instead before enabling host shipping.
+Host shipping only starts after a successful apply. If Terraform succeeds but
+shipping fails, fix the host/credentials and rerun **Run workflow** on `main`:
+a fresh no-op Terraform plan is safe, then shipping retries. No automatic
+rollback is attempted after a paid domain purchase or partial host bootstrap.
 
 References: [Terraform S3 locking](https://developer.hashicorp.com/terraform/language/backend/s3),
 [GitHub's self-hosted runner warning for public repositories](https://docs.github.com/en/actions/reference/security/secure-use#hardening-for-self-hosted-runners).
