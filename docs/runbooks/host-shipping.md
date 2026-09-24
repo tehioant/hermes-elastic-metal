@@ -3,13 +3,19 @@
 The deployment job runs on a **GitHub-hosted** runner. It joins a restricted
 Tailscale network, checks the server's pinned SSH host key and `ops` sudo
 access **before** Terraform apply, then ships the same commit and checks
-Docker and the backup/healthcheck timers. Do not use a persistent self-hosted
+Docker and the backup/healthcheck timers. This is continuous deployment to
+an **already provisioned and manually enrolled** host—not automatic first
+provisioning. The state guard rejects an empty backend; a new host needs a
+separate trusted first-bootstrap phase. Do not use a persistent self-hosted
 runner on this public repo or open public SSH for GitHub's changing IP ranges.
 
 ## One-time server and tailnet setup
 
 1. Merge the [non-resetting firewall](firewall.md), [dedicated deploy key](deploy-ssh-key.md),
-   and restic-password guard PRs before host shipping. On the existing server,
+   the explicit-ops-key and key-transport PRs (#12–#13), and the
+   restic-password guard before host shipping. Verify that Terraform's
+   `ssh_public_key` belongs to your intended privileged admin key; restricted
+   root keys are no longer copied to `ops`. On the existing server,
    audit UFW and seed `/etc/hermes/ssh-admin-cidrs` with the *current* rules as
    the firewall guide explains. Keep a tested public admin/console fallback.
 2. Install Tailscale on the server using its [official Linux guide](https://tailscale.com/docs/install/linux),

@@ -6,7 +6,9 @@ validated**. This includes the paid `tehio.eu` registration and annual
 renewal configuration when the domain PR is merged. There is no per-merge
 approval step or price ceiling; check the domain's availability, purchase and
 renewal prices, payment method, and .eu eligibility before enabling this.
-Terraform does not deploy the dashboard or expose a web port.
+Terraform does not deploy the dashboard or expose a web port. It also does
+**not** perform initial provisioning: the authoritative migrated state, host,
+Tailscale enrollment and SSH trust must already exist.
 
 ## Before merging the deployment PR
 
