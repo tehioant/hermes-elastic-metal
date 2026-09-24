@@ -16,8 +16,11 @@ fi
 umask 077
 tmp="$(mktemp "${ops_keys}.XXXXXX")"
 trap 'rm -f "${tmp}"' EXIT
-grep -oE '(ssh-[a-z0-9]+|ecdsa-sha2-[a-z0-9-]+) .*' "${root_keys}" > "${tmp}"
+cat -- "${root_keys}" > "${tmp}"
 if [[ -f "${deploy_key}" ]]; then
+  if [[ -s "${tmp}" && -n "$(tail -c 1 "${tmp}")" ]]; then
+    printf '\n' >> "${tmp}"
+  fi
   printf '%s\n' "${lines[0]}" >> "${tmp}"
 fi
 mv "${tmp}" "${ops_keys}"
