@@ -1,11 +1,14 @@
 # Dedicated CD SSH key
 
-Automatic shipping requires a key that remains authorized for `ops` after
-every bootstrap. The old bootstrap regenerated `/home/ops/.ssh/authorized_keys`
-from root's first-boot keys, removing any separately installed deployment key.
-The new bootstrap also reads one explicit key from `/etc/hermes/deploy.pub`.
-It must be a single `restrict ssh-ed25519 ...` line; it is not copied into
-root's authorized keys. Removing this file and rerunning bootstrap revokes it.
+Automatic shipping requires keys that remain authorized for `ops` after
+every bootstrap. The old bootstrap stripped restrictions from root's
+`authorized_keys` while copying them to `ops`: a `from=` or `command=`-limited
+root key thereby acquired unrestricted `ops` access and passwordless sudo.
+The replacement trusts only the **explicit** Terraform `ssh_public_key` for
+personal admin access, plus one restricted CI key from `/etc/hermes/deploy.pub`.
+The admin key is persisted at `/etc/hermes/ops.pub` for manual reruns; root's
+`authorized_keys` is never promoted. Removing the CI key file and rerunning
+bootstrap revokes it.
 
 On a trusted computer, generate a **dedicated** unencrypted automation key
 (`ssh-keygen -t ed25519 -f ./hermes-cd -C hermes-cd -N ''`). Keep the private
@@ -26,10 +29,14 @@ Do not use the public **server host key** here; this file holds the CI
 **client** public key. `restrict` disables forwarding and PTY but permits
 noninteractive commands needed by `ship.sh`.
 
-After this PR is merged, rerun `scripts/ship.sh ops@<public-ip>` from your
-trusted laptop (using the migrated Terraform state and existing restic
-password); it installs the new key synchronization logic. Verify with the
-private CI key over the tailnet:
+After the deploy-key PR **and** the explicit-admin-key PR are merged, verify
+that Terraform's `ssh_public_key` is the trusted personal key you can use to
+log in as `ops` (and no key only intended for restricted root access). The
+bootstrap replaces `ops` authorized keys with that key and the optional CI
+key. Rerun `scripts/ship.sh ops@<public-ip>` from your trusted laptop with the
+migrated Terraform state and existing restic password. Keep the current admin
+session and provider console available; test a new personal `ops` session
+before closing either fallback. Then verify the CI key over the tailnet:
 
 ```bash
 ssh -i ./hermes-cd -o IdentitiesOnly=yes ops@<tailnet-ip> 'sudo -n true'
