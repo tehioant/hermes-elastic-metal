@@ -62,6 +62,22 @@ before attempting another `init`.
 
 All future local applies must initialize against this same bucket. Terraform
 acquires a remote `.tflock` for plans and applies; do not use `-lock=false`.
-Before enabling merge-triggered deployment, configure the identical bucket
-name and state credentials in the CI deployment environment and verify the
-remote state from that runner without applying any changes.
+Before enabling merge-triggered deployment, compare the `STATE_BUCKET` and
+state credentials intended for the GitHub `production` environment against
+this verified backend. On your trusted laptop, use those credentials and run
+a **read-only** check against the migrated state (after the deployment guard
+PR is available):
+
+```bash
+set -o pipefail
+: "${STATE_BUCKET:?set the production state bucket}"
+: "${EXPECTED_STATE_LINEAGE:?use the recorded authoritative lineage}"
+terraform -chdir=terraform init -reconfigure -backend-config="bucket=${STATE_BUCKET}"
+terraform -chdir=terraform state pull |
+  EXPECTED_STATE_LINEAGE="${EXPECTED_STATE_LINEAGE}" python3 scripts/deployment_guards.py state
+```
+
+The GitHub deploy workflow has **no verification-only mode**. Do not dispatch
+it to check state: after a successful guard it can plan, apply and ship.
+The first production run repeats this state guard before planning, but it
+still requires every host/network/credential prerequisite from the CD guide.
