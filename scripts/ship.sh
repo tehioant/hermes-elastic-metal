@@ -28,8 +28,10 @@ remote_sudo() {
 }
 
 main() {
-  local admin_cidrs restic_repository restic_password access_key secret_key
+  local admin_cidrs ops_key escaped_ops_key restic_repository restic_password access_key secret_key
   admin_cidrs="$(tf_output admin_cidrs)"
+  ops_key="$(tf_output ops_ssh_public_key)"
+  printf -v escaped_ops_key '%q' "${ops_key}"
   restic_repository="$(tf_output restic_repository)"
   access_key="$(tf_output backup_access_key)"
   secret_key="$(tf_output backup_secret_key)"
@@ -44,6 +46,7 @@ main() {
   # shellcheck disable=SC2087
   ssh "${TARGET}" "$(remote_sudo)bash -c 'set -a; source /dev/stdin; set +a; exec bash ${REMOTE_DIR}/scripts/bootstrap.sh </dev/null'" <<EOF
 ADMIN_CIDRS='${admin_cidrs}'
+OPS_SSH_PUBLIC_KEY=${escaped_ops_key}
 RESTIC_REPOSITORY='${restic_repository}'
 RESTIC_PASSWORD='${restic_password}'
 AWS_ACCESS_KEY_ID='${access_key}'

@@ -12,3 +12,8 @@ output "admin_cidrs" {
   description = "Comma-separated admin CIDRs, passed to bootstrap.sh as ADMIN_CIDRS."
   value       = join(",", var.admin_cidrs)
 }
+
+output "ops_ssh_public_key" {
+  description = "Explicitly trusted public key for the privileged ops user."
+  value       = var.ssh_public_key
+}
