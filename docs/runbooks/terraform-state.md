@@ -54,9 +54,21 @@ its `.tflock`.
    terraform -chdir=terraform init -migrate-state
    ```
 
-4. Re-run the fingerprint command. Lineage, serial and resources must match,
-   and `state list` must include the server, backup bucket and IAM resources.
-5. `terraform -chdir=terraform plan` must show only intended changes — never a
-   server replacement. If anything differs, stop and restore from the backup.
+Confirm that the lineage and managed resource addresses match the pre-migration
+state, `state list` still contains the existing server, bucket and IAM
+resources, the S3 bucket contains a versioned encrypted state object at
+`hermes-elastic-metal/terraform.tfstate`, and the plan has **only** intended
+changes. Do not apply a plan that proposes a replacement or duplicates the
+existing server. Store the state backup and plan privately; they can contain
+secrets. If migration fails, stop and restore from the protected local backup
+before attempting another `init`.
+
+All future local applies must initialize against this same bucket. Terraform
+acquires a remote `.tflock` for plans and applies; do not use `-lock=false`.
+Before enabling merge-triggered deployment, compare the `STATE_BUCKET` and
+state credentials intended for the GitHub `production` environment against
+this verified backend. On your trusted laptop, use those credentials and run
+a **read-only** check against the migrated state (after the deployment guard
+PR is available):
 
 Always keep locking on: do not use `-lock=false`.
