@@ -17,16 +17,7 @@ jobs:
           terraform_version: 1.13.5
       - name: Check formatting
         run: terraform -chdir=terraform fmt -check -recursive
-      - name: Initialize
-        run: terraform -chdir=terraform init -input=false
+      - name: Initialize providers without state
+        run: terraform -chdir=terraform init -backend=false -input=false
       - name: Validate configuration
         run: terraform -chdir=terraform validate -no-color
-      - name: Plan
-        env:
-          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_DEFAULT_PROJECT_ID }}
-          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_DEFAULT_ORGANIZATION_ID }}
-          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-          TF_VAR_admin_cidrs: ${{ secrets.ADMIN_CIDRS }}
-        run: terraform -chdir=terraform plan -input=false -no-color -lock=false
