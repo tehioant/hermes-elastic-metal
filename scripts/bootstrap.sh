@@ -149,6 +149,7 @@ install_backup() {
     return
   fi
 
+  bash "${REPO_DIR}/scripts/check_restic_password.sh" /etc/restic/password
   log "configuring restic repository"
   install -d -m 0700 /etc/restic
   printf '%s\n' "${RESTIC_PASSWORD}" > /etc/restic/password
