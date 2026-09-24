@@ -48,6 +48,38 @@ class ShipTest(unittest.TestCase):
             self.assertEqual(decoded.returncode, 0, decoded.stderr)
             self.assertEqual(decoded.stdout, env["RESTIC_PASSWORD"])
 
+    def test_ops_can_replace_a_root_owned_stage_after_initial_bootstrap(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            for name in ("scripts", "config", "systemd", "terraform", "bin"):
+                (root / name).mkdir()
+            shutil.copy(ROOT / "scripts/ship.sh", root / "scripts/ship.sh")
+            terraform = root / "bin/terraform"
+            terraform.write_text("#!/bin/sh\nfor last; do :; done\n"
+                                 "case \"$last\" in\n"
+                                 "  admin_cidrs) printf '192.0.2.1/32';;\n"
+                                 "  restic_repository) printf 's3:example';;\n"
+                                 "  backup_access_key) printf 'public';;\n"
+                                 "  backup_secret_key) printf 'private';;\n"
+                                 "esac\n")
+            ssh = root / "bin/ssh"
+            ssh.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CAPTURE_COMMANDS"\n'
+                           'case "$*" in *"tar -xzf"*) cat >/dev/null;; *) cat >/dev/null;; esac\n')
+            terraform.chmod(0o700)
+            ssh.chmod(0o700)
+            env = os.environ.copy()
+            env.update(PATH=f"{root / 'bin'}:{env['PATH']}", RESTIC_PASSWORD="stable",
+                       CAPTURE_COMMANDS=str(root / "ssh-commands"))
+            for target in ("root@example.test", "ops@example.test"):
+                result = subprocess.run(["bash", str(root / "scripts/ship.sh"), target],
+                                        env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            root_transfer, _, ops_transfer, _ = (root / "ssh-commands").read_text().splitlines()
+            self.assertIn("root@example.test rm -rf /tmp/hermes", root_transfer)
+            self.assertIn("ops@example.test sudo rm -rf /tmp/hermes", ops_transfer)
+            self.assertIn("sudo mkdir -m 0700 /tmp/hermes", ops_transfer)
+            self.assertIn("sudo tar -xzf - -C /tmp/hermes", ops_transfer)
+
 
 if __name__ == "__main__":
     unittest.main()
