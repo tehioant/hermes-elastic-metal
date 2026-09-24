@@ -33,7 +33,7 @@ remote_sudo() {
 }
 
 main() {
-  local admin_cidrs restic_repository restic_password access_key secret_key remote_environment
+  local admin_cidrs restic_repository restic_password access_key secret_key remote_environment remote_privilege
   admin_cidrs="$(tf_output admin_cidrs)"
   restic_repository="$(tf_output restic_repository)"
   access_key="$(tf_output backup_access_key)"
@@ -41,8 +41,9 @@ main() {
   restic_password="$(read_restic_password)"
 
   printf '🚚 shipping repo to %s:%s\n' "${TARGET}" "${REMOTE_DIR}"
+  remote_privilege="$(remote_sudo)"
   tar -C "${REPO_DIR}" -czf - scripts config systemd \
-    | ssh "${TARGET}" "rm -rf ${REMOTE_DIR} && mkdir -p ${REMOTE_DIR} && tar -xzf - -C ${REMOTE_DIR}"
+    | ssh "${TARGET}" "${remote_privilege}rm -rf ${REMOTE_DIR} && ${remote_privilege}mkdir -m 0700 ${REMOTE_DIR} && ${remote_privilege}tar -xzf - -C ${REMOTE_DIR}"
 
   printf '🔧 running bootstrap on %s\n' "${TARGET}"
   printf -v remote_environment 'ADMIN_CIDRS=%q\nRESTIC_REPOSITORY=%q\nRESTIC_PASSWORD=%q\nAWS_ACCESS_KEY_ID=%q\nAWS_SECRET_ACCESS_KEY=%q\n' \
