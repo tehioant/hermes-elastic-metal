@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    key                         = "hermes-elastic-metal/terraform.tfstate"
-    region                      = "nl-ams"
-    endpoints                   = { s3 = "https://s3.nl-ams.scw.cloud" }
+    key                         = "terraform/terraform.tfstate"
+    region                      = "fr-par"
+    endpoints                   = { s3 = "https://s3.fr-par.scw.cloud" }
     use_path_style              = true
     use_lockfile                = true
     skip_credentials_validation = true
