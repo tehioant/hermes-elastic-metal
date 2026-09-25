@@ -135,37 +135,46 @@ configure_disk_monitoring() {
   systemctl enable --now rasdaemon >/dev/null
 }
 
+package_installed() {
+  dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -qx 'install ok installed'
+}
+
 assert_managed_netdata() {
   local marker="$1"
-  if dpkg-query -W -f='${Status}' netdata 2>/dev/null | grep -qx 'install ok installed'; then
+  if package_installed netdata; then
     [[ -f "${marker}" ]] \
       || fail "existing Netdata was not installed by this bootstrap; inspect it before replacing it"
   fi
 }
 
+netdata_listens_beyond_loopback() {
+  ss -H -ltn '( sport = :19999 )' | awk '$4 != "127.0.0.1:19999" { found = 1 } END { exit !found }'
+}
+
 install_netdata() {
   log "configuring Netdata (localhost only)"
   local config_changed=0 installer
-  assert_managed_netdata /etc/netdata/.hermes-native-install
+  local config_src="${REPO_DIR}/config/netdata/netdata.conf" config_dst=/etc/netdata/netdata.conf
+  local managed_marker=/etc/netdata/.hermes-native-install
+  assert_managed_netdata "${managed_marker}"
   # Place the bind restriction before installation starts the service.
-  if install_if_changed "${REPO_DIR}/config/netdata/netdata.conf" /etc/netdata/netdata.conf; then
+  if install_if_changed "${config_src}" "${config_dst}"; then
     config_changed=1
   fi
   install -m 0644 /dev/null /etc/netdata/.opt-out-from-anonymous-statistics
 
-  if ! dpkg-query -W -f='${Status}' netdata 2>/dev/null | grep -qx 'install ok installed'; then
+  if ! package_installed netdata; then
     installer="$(mktemp)"
     curl -fsSL https://get.netdata.cloud/kickstart.sh -o "${installer}"
     DISABLE_TELEMETRY=1 bash "${installer}" --non-interactive --release-channel stable --native-only --auto-update
     rm -f "${installer}"
-    install -m 0644 /dev/null /etc/netdata/.hermes-native-install
+    install -m 0644 /dev/null "${managed_marker}"
     config_changed=1
   fi
-  dpkg-query -W -f='${Status}' netdata-repo 2>/dev/null | grep -qx 'install ok installed' \
-    || fail "Netdata's official package repository is not installed"
+  package_installed netdata-repo || fail "Netdata's official package repository is not installed"
 
   # Restore the repo-owned configuration if a package upgrade changed it.
-  if install_if_changed "${REPO_DIR}/config/netdata/netdata.conf" /etc/netdata/netdata.conf; then
+  if install_if_changed "${config_src}" "${config_dst}"; then
     config_changed=1
   fi
   systemctl enable --now netdata.service >/dev/null
@@ -173,7 +182,7 @@ install_netdata() {
     systemctl restart netdata.service
   fi
   curl -fsS --retry 5 --retry-delay 1 http://127.0.0.1:19999/api/v1/info >/dev/null
-  if ss -H -ltn '( sport = :19999 )' | grep -qvE '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+127\.0\.0\.1:19999[[:space:]]'; then
+  if netdata_listens_beyond_loopback; then
     fail "Netdata is listening beyond 127.0.0.1:19999"
   fi
 }
