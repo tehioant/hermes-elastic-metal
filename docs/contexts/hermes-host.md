@@ -20,6 +20,10 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   `.restic-password` (gitignored) on first run.
 - `scripts/backup.sh` / `restore-drill.sh` / `healthcheck.sh` — installed to
   `/usr/local/sbin`, driven by systemd timers in `systemd/`.
+- `scripts/install-caddy.sh` + `config/caddy/Caddyfile` — publishes the Hermes
+  dashboard (`127.0.0.1:9119`) at `https://apollo.antelab.eu`; opens 80/443
+  only if Hermes `/api/status` reports `auth_required: true`. Guide:
+  `docs/runbooks/dashboard-domain.md`.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
