@@ -62,11 +62,13 @@ install_netdata() {
 }
 
 publish_dashboard() {
-  local operator_target="${TARGET/#root@/ops@}" fqdn
-  fqdn="$(tf_output dashboard_fqdn)"
-  printf '🔒 publishing dashboard at https://%s\n' "${fqdn}"
-  ssh "${operator_target}" "sudo DASHBOARD_FQDN=${fqdn} bash ${REMOTE_DIR}/scripts/install-caddy.sh </dev/null" \
-    || printf '⚠️  Dashboard not published; host bootstrap is complete. See docs/runbooks/dashboard-domain.md\n' >&2
+  local operator_target="${TARGET/#root@/ops@}" dashboard_fqdn netdata_fqdn
+  dashboard_fqdn="$(tf_output dashboard_fqdn)"
+  netdata_fqdn="$(tf_output netdata_fqdn)"
+  printf '🔒 publishing https://%s and https://%s\n' "${dashboard_fqdn}" "${netdata_fqdn}"
+  ssh "${operator_target}" "sudo NETDATA_FQDN=${netdata_fqdn} bash ${REMOTE_DIR}/scripts/install-oauth2-proxy.sh </dev/null \
+    && sudo DASHBOARD_FQDN=${dashboard_fqdn} NETDATA_FQDN=${netdata_fqdn} bash ${REMOTE_DIR}/scripts/install-caddy.sh </dev/null" \
+    || printf '⚠️  Dashboards not published; host bootstrap is complete. See docs/runbooks/dashboard-domain.md and netdata-domain.md\n' >&2
 }
 
 main "$@"
