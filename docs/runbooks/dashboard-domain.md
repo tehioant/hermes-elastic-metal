@@ -90,6 +90,9 @@ ssh ops@<ip> sudo healthcheck.sh                         # dashboard proxy: cadd
 - Certificate not issued → `journalctl -u caddy`; port 80 must be reachable
   from the internet and DNS must point to the server.
 - 502 Bad Gateway → Hermes is down: `systemctl status <hermes unit>`.
+- `healthcheck` reports `PUBLIC WITHOUT AUTH` → Hermes auth was lost (upgrade,
+  config edit, missing OIDC secret). Run `sudo systemctl stop caddy`
+  immediately, fix step 2, then re-run `install-caddy.sh`.
 
 ### Rollback
 
