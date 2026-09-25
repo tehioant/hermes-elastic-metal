@@ -38,14 +38,14 @@ install_caddy_package() {
 }
 
 write_environment() {
-  local tmp changed=1
+  local tmp unchanged=1
   tmp="$(mktemp)"
   printf 'DASHBOARD_FQDN=%s\n' "${DASHBOARD_FQDN}" > "${tmp}"
-  install_if_changed "${tmp}" "${CADDY_ENV}" || changed=0
+  install_if_changed "${tmp}" "${CADDY_ENV}" && unchanged=0
   printf '[Service]\nEnvironmentFile=%s\n' "${CADDY_ENV}" > "${tmp}"
-  install_if_changed "${tmp}" "${CADDY_DROPIN}" && changed=1
+  install_if_changed "${tmp}" "${CADDY_DROPIN}" && unchanged=0
   rm -f "${tmp}"
-  return $(( 1 - changed ))
+  return "${unchanged}"
 }
 
 open_web_ports() {
@@ -54,7 +54,7 @@ open_web_ports() {
 }
 
 verify_https() {
-  curl -fsS -o /dev/null --retry 10 --retry-delay 3 --retry-all-errors \
+  curl -fsS -o /dev/null --retry 20 --retry-delay 3 --retry-all-errors \
     --resolve "${DASHBOARD_FQDN}:443:127.0.0.1" "https://${DASHBOARD_FQDN}/api/status" \
     || fail "https://${DASHBOARD_FQDN} not serving; check: journalctl -u caddy"
 }
