@@ -22,7 +22,7 @@ described in [terraform-state.md](terraform-state.md) before initializing.
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars            # ssh_public_key, admin_cidrs (curl -4 ifconfig.me)
-terraform init
+terraform init -backend-config="bucket=${STATE_BUCKET:?set the state bucket}"
 terraform plan -out=tfplan          # expect 7 to add, 0 to change, 0 to destroy
 terraform apply tfplan
 ```
