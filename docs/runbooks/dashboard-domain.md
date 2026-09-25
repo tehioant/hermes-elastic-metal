@@ -31,7 +31,71 @@ dig +short A apollo.antelab.eu
 The resolved A address must match the Terraform IPv4 output. DNS propagation
 can take time.
 
-Before pointing browsers at the dashboard, deploy HTTPS with a reverse proxy,
-configure the Hermes OAuth/OIDC auth provider and exact HTTPS
-`dashboard.public_url`, and verify `/api/status` reports `auth_required: true`.
-Keep Hermes' backend on loopback; do not expose port 9119 directly.
+## Publish the dashboard over HTTPS
+
+Caddy (Ubuntu `caddy` package) terminates TLS with automatic Let's Encrypt
+certificates and proxies `https://apollo.antelab.eu` to Hermes on
+`127.0.0.1:9119`. Hermes stays on loopback; port 9119 is never exposed.
+
+`scripts/install-caddy.sh` refuses to run (and never opens 80/443) unless
+`http://127.0.0.1:9119/api/status` reports `auth_required: true`.
+
+### 1. Prerequisites
+
+- A record resolves to the server (see *Verify* above).
+- Hermes dashboard running natively under systemd, bound to `127.0.0.1:9119`.
+
+### 2. Configure Hermes authentication (on the host)
+
+1. Create an OAuth/OIDC client at your provider (GitHub, Google, ...):
+   - Redirect / callback URI: `https://apollo.antelab.eu/<hermes callback path>`
+     (see the Hermes auth docs for the exact path).
+2. Put the client ID/secret in the Hermes service environment on the host
+   (e.g. a `0600` `EnvironmentFile`), never in this repo.
+3. Set `dashboard.public_url = https://apollo.antelab.eu` (exact, HTTPS).
+4. Restart Hermes and check:
+
+```bash
+ssh ops@<ip> curl -s http://127.0.0.1:9119/api/status   # must contain "auth_required": true
+```
+
+### 3. Install the proxy
+
+```bash
+scripts/ship.sh ops@$(terraform -chdir=terraform output -raw ipv4)
+```
+
+`ship.sh` runs `install-caddy.sh` after bootstrap. To run it alone:
+
+```bash
+ssh ops@<ip> sudo DASHBOARD_FQDN=apollo.antelab.eu bash /tmp/hermes/scripts/install-caddy.sh
+```
+
+The script installs Caddy, deploys `config/caddy/Caddyfile`, sets
+`DASHBOARD_FQDN` in a `caddy.service` drop-in, validates the config, opens `80/tcp` + `443/tcp` in UFW,
+starts Caddy and checks HTTPS locally.
+
+### 4. Verify
+
+```bash
+curl -sI https://apollo.antelab.eu                       # 200 or redirect to login
+curl -s  https://apollo.antelab.eu/api/status            # "auth_required": true
+nc -vz -w3 apollo.antelab.eu 9119                        # must fail
+ssh ops@<ip> sudo healthcheck.sh                         # dashboard proxy: caddy active
+```
+
+### Troubleshooting
+
+- Script says `auth_required != true` → finish step 2.
+- Certificate not issued → `journalctl -u caddy`; port 80 must be reachable
+  from the internet and DNS must point to the server.
+- 502 Bad Gateway → Hermes is down: `systemctl status <hermes unit>`.
+- `healthcheck` reports `PUBLIC WITHOUT AUTH` → Hermes auth was lost (upgrade,
+  config edit, missing OIDC secret). Run `sudo systemctl stop caddy`
+  immediately, fix step 2, then re-run `install-caddy.sh`.
+
+### Rollback
+
+```bash
+ssh ops@<ip> 'sudo systemctl disable --now caddy && sudo ufw delete allow 80/tcp && sudo ufw delete allow 443/tcp'
+```

@@ -51,6 +51,7 @@ AWS_SECRET_ACCESS_KEY='${secret_key}'
 EOF
 
   install_netdata
+  publish_dashboard
 }
 
 install_netdata() {
@@ -58,6 +59,14 @@ install_netdata() {
   printf '📈 installing Netdata on %s\n' "${operator_target}"
   ssh "${operator_target}" "sudo bash ${REMOTE_DIR}/scripts/install-netdata.sh </dev/null" \
     || printf '⚠️  Netdata install failed; host bootstrap is complete. Re-run: ssh %s sudo bash %s/scripts/install-netdata.sh\n' "${operator_target}" "${REMOTE_DIR}" >&2
+}
+
+publish_dashboard() {
+  local operator_target="${TARGET/#root@/ops@}" fqdn
+  fqdn="$(tf_output dashboard_fqdn)"
+  printf '🔒 publishing dashboard at https://%s\n' "${fqdn}"
+  ssh "${operator_target}" "sudo DASHBOARD_FQDN=${fqdn} bash ${REMOTE_DIR}/scripts/install-caddy.sh </dev/null" \
+    || printf '⚠️  Dashboard not published; host bootstrap is complete. See docs/runbooks/dashboard-domain.md\n' >&2
 }
 
 main "$@"

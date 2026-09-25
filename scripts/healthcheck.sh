@@ -87,6 +87,20 @@ check_last_backup() {
   esac
 }
 
+check_dashboard_proxy() {
+  systemctl list-unit-files caddy.service >/dev/null 2>&1 || { ok "dashboard proxy: not installed"; return; }
+  if ! systemctl is-active --quiet caddy.service; then
+    bad "dashboard proxy: caddy not active"
+    return
+  fi
+  if curl -fsS --max-time 5 http://127.0.0.1:9119/api/status \
+      | grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true'; then
+    ok "dashboard proxy: caddy active, hermes auth required"
+  else
+    bad "dashboard proxy: PUBLIC WITHOUT AUTH or hermes down — check /api/status; stop caddy if auth is off"
+  fi
+}
+
 main() {
   check_raid
   check_smart
@@ -95,6 +109,7 @@ main() {
   check_containers
   check_ras
   check_last_backup
+  check_dashboard_proxy
   (( failures == 0 )) || { printf '❌ %d check(s) failed\n' "${failures}" >&2; exit 1; }
   ok "all checks passed"
 }
