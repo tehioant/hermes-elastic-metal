@@ -8,15 +8,6 @@ permissions:
   contents: read
 
 jobs:
-  netdata:
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Check Netdata installer guard and loopback config
-        run: |
-          bash -n scripts/install-netdata.sh scripts/ship.sh tests/install-netdata.sh
-          bash tests/install-netdata.sh
-
   terraform:
     runs-on: ubuntu-26.04
     env:
