@@ -13,6 +13,11 @@ output "dashboard_fqdn" {
   value       = scaleway_domain_record.dashboard.fqdn
 }
 
+output "netdata_fqdn" {
+  description = "Public DNS name of the Netdata dashboard (Google login via oauth2-proxy)."
+  value       = scaleway_domain_record.netdata.fqdn
+}
+
 output "admin_cidrs" {
   description = "Comma-separated admin CIDRs, passed to bootstrap.sh as ADMIN_CIDRS."
   value       = join(",", var.admin_cidrs)
