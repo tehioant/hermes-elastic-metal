@@ -135,6 +135,49 @@ configure_disk_monitoring() {
   systemctl enable --now rasdaemon >/dev/null
 }
 
+assert_managed_netdata() {
+  local marker="$1"
+  if dpkg-query -W -f='${Status}' netdata 2>/dev/null | grep -qx 'install ok installed'; then
+    [[ -f "${marker}" ]] \
+      || fail "existing Netdata was not installed by this bootstrap; inspect it before replacing it"
+  fi
+}
+
+install_netdata() {
+  log "configuring Netdata (localhost only)"
+  local config_changed=0 installer
+  assert_managed_netdata /etc/netdata/.hermes-native-install
+  # Place the bind restriction before installation starts the service.
+  if install_if_changed "${REPO_DIR}/config/netdata/netdata.conf" /etc/netdata/netdata.conf; then
+    config_changed=1
+  fi
+  install -m 0644 /dev/null /etc/netdata/.opt-out-from-anonymous-statistics
+
+  if ! dpkg-query -W -f='${Status}' netdata 2>/dev/null | grep -qx 'install ok installed'; then
+    installer="$(mktemp)"
+    curl -fsSL https://get.netdata.cloud/kickstart.sh -o "${installer}"
+    DISABLE_TELEMETRY=1 bash "${installer}" --non-interactive --release-channel stable --native-only --auto-update
+    rm -f "${installer}"
+    install -m 0644 /dev/null /etc/netdata/.hermes-native-install
+    config_changed=1
+  fi
+  dpkg-query -W -f='${Status}' netdata-repo 2>/dev/null | grep -qx 'install ok installed' \
+    || fail "Netdata's official package repository is not installed"
+
+  # Restore the repo-owned configuration if a package upgrade changed it.
+  if install_if_changed "${REPO_DIR}/config/netdata/netdata.conf" /etc/netdata/netdata.conf; then
+    config_changed=1
+  fi
+  systemctl enable --now netdata.service >/dev/null
+  if (( config_changed )); then
+    systemctl restart netdata.service
+  fi
+  curl -fsS --retry 5 --retry-delay 1 http://127.0.0.1:19999/api/v1/info >/dev/null
+  if ss -H -ltn '( sport = :19999 )' | grep -qvE '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+127\.0\.0\.1:19999[[:space:]]'; then
+    fail "Netdata is listening beyond 127.0.0.1:19999"
+  fi
+}
+
 backup_env_provided() {
   [[ -n "${RESTIC_REPOSITORY:-}" && -n "${RESTIC_PASSWORD:-}" \
      && -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]
@@ -200,10 +243,13 @@ main() {
   configure_firewall
   configure_auto_updates
   configure_disk_monitoring
+  install_netdata
   install_backup
   install_maintenance_timers
   verify
   log "bootstrap completed — reconnect as ${DOCKER_USER}@, root login is now disabled"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

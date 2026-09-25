@@ -8,6 +8,15 @@ permissions:
   contents: read
 
 jobs:
+  netdata-bootstrap:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check bootstrap and Netdata management guard
+        run: |
+          bash -n scripts/bootstrap.sh tests/netdata-bootstrap.sh
+          bash tests/netdata-bootstrap.sh
+
   terraform:
     runs-on: ubuntu-26.04
     env:
