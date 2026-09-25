@@ -73,7 +73,7 @@ variable "backup_lock_days" {
 variable "dashboard_domain_name" {
   description = "Registered domain for the Hermes dashboard. Applying the registration purchases it."
   type        = string
-  default     = "ante.eu"
+  default     = "antelab.eu"
 }
 
 variable "dashboard_subdomain" {
