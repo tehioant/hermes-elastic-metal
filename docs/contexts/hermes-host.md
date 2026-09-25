@@ -32,6 +32,12 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   not in repo). Allowlist = Google app **test users** (app stays *Testing*;
   publishing opens it to every Google account). No roles: every user is admin.
   No refresh token → silent Google re-login ~hourly.
+- Netdata (native, `127.0.0.1:19999`) is published at
+  `https://netdata.antelab.eu` by the same Caddy with `forward_auth` to
+  oauth2-proxy (`127.0.0.1:4180`, `oauth2-proxy-netdata.service`, pinned
+  release + SHA-256 in `scripts/install-oauth2-proxy.sh`). Reuses the Hermes
+  Google client from `/home/ops/.hermes/.env`; 12h sessions. Guide:
+  `docs/runbooks/netdata-domain.md`.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
@@ -75,6 +81,8 @@ shellcheck scripts/*.sh config/docker/*.sh
 - `healthcheck` failing → `journalctl -u healthcheck --since today`.
 - `PUBLIC WITHOUT OIDC AUTH` → `sudo systemctl stop caddy`, fix Hermes OIDC
   env, re-run `install-caddy.sh`; locked out → break-glass in the runbook.
+- netdata.antelab.eu 502 / `netdata login: oauth2-proxy not active` →
+  `journalctl -u oauth2-proxy-netdata`, re-run `install-oauth2-proxy.sh`.
 - Backup failing → `journalctl -u restic-backup`; another job holding
   `/run/lock/restic.lock` (drill) makes backup exit immediately by design.
 - RAID degraded → `cat /proc/mdstat`, `smartctl -a /dev/sdX`; open a Scaleway
