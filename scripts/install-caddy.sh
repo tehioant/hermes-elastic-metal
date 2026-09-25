@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Publish the Hermes dashboard (127.0.0.1:9119) at https://${DASHBOARD_FQDN} through Caddy.
-# Refuses to open 80/443 unless Hermes reports auth_required=true with the
-# self-hosted (Google) OIDC provider. Safe to re-run.
+# Run the Hermes dashboard on 127.0.0.1:9119 (hermes-dashboard.service) and publish it
+# at https://${DASHBOARD_FQDN} through Caddy. Refuses to open 80/443 unless Hermes
+# reports auth_required=true with the self-hosted (Google) OIDC provider. Safe to re-run.
 set -Eeuo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,6 +11,9 @@ readonly HERMES_STATUS_URL="${HERMES_STATUS_URL:-http://127.0.0.1:9119/api/statu
 readonly CADDYFILE_SRC="${REPO_DIR}/config/caddy/Caddyfile"
 readonly CADDYFILE_DST=/etc/caddy/Caddyfile
 readonly CADDY_DROPIN=/etc/systemd/system/caddy.service.d/dashboard.conf
+readonly DASHBOARD_UNIT=hermes-dashboard.service
+readonly DASHBOARD_UNIT_SRC="${REPO_DIR}/systemd/${DASHBOARD_UNIT}"
+readonly DASHBOARD_UNIT_DST="/etc/systemd/system/${DASHBOARD_UNIT}"
 
 log()  { printf '🔒 %s\n' "$*"; }
 fail() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -23,10 +26,21 @@ install_if_changed() {
   install -m 0644 -D "${src}" "${dst}"
 }
 
+start_hermes_dashboard() {
+  log "starting ${DASHBOARD_UNIT} on 127.0.0.1:9119"
+  local changed=0
+  install_if_changed "${DASHBOARD_UNIT_SRC}" "${DASHBOARD_UNIT_DST}" && changed=1
+  systemctl daemon-reload
+  systemctl enable --now "${DASHBOARD_UNIT}" >/dev/null
+  if (( changed )); then
+    systemctl restart "${DASHBOARD_UNIT}"
+  fi
+}
+
 assert_hermes_requires_oidc() {
   local status
-  status="$(curl -fsS --max-time 5 "${HERMES_STATUS_URL}")" \
-    || fail "Hermes dashboard not reachable at ${HERMES_STATUS_URL}; start it before publishing"
+  status="$(curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-all-errors "${HERMES_STATUS_URL}")" \
+    || fail "Hermes dashboard not reachable at ${HERMES_STATUS_URL}; check: journalctl -u ${DASHBOARD_UNIT} (missing OIDC config makes it refuse to start)"
   grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true' <<<"${status}" \
     || fail "Hermes reports auth_required != true; configure Google OIDC before publishing (see docs/runbooks/dashboard-domain.md)"
   grep -Eq '"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"' <<<"${status}" \
@@ -63,6 +77,7 @@ verify_https() {
 main() {
   [[ "${EUID}" -eq 0 ]] || fail "must run as root"
   log "publishing Hermes dashboard at https://${DASHBOARD_FQDN}"
+  start_hermes_dashboard
   assert_hermes_requires_oidc
   install_caddy_package
 

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes Agent dashboard (loopback, published by Caddy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ops
+Group=ops
+WorkingDirectory=/home/ops/.hermes
+Environment="PATH=/home/ops/.hermes/hermes-agent/venv/bin:/home/ops/.hermes/hermes-agent/node_modules/.bin:/home/ops/.hermes/node/bin:/home/ops/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/home/ops/.hermes/hermes-agent/venv"
+Environment="HERMES_HOME=/home/ops/.hermes"
+ExecStart=/home/ops/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main dashboard --host 127.0.0.1 --port 9119 --no-open
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
