@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publish the Hermes dashboard (127.0.0.1:9119) at https://${DASHBOARD_FQDN} through Caddy.
-# Refuses to open 80/443 unless Hermes reports auth_required=true. Safe to re-run.
+# Refuses to open 80/443 unless Hermes reports auth_required=true with the
+# self-hosted (Google) OIDC provider. Safe to re-run.
 set -Eeuo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,12 +23,14 @@ install_if_changed() {
   install -m 0644 -D "${src}" "${dst}"
 }
 
-assert_hermes_requires_auth() {
+assert_hermes_requires_oidc() {
   local status
   status="$(curl -fsS --max-time 5 "${HERMES_STATUS_URL}")" \
     || fail "Hermes dashboard not reachable at ${HERMES_STATUS_URL}; start it before publishing"
   grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true' <<<"${status}" \
-    || fail "Hermes reports auth_required != true; configure OAuth/OIDC before publishing (see docs/runbooks/dashboard-domain.md)"
+    || fail "Hermes reports auth_required != true; configure Google OIDC before publishing (see docs/runbooks/dashboard-domain.md)"
+  grep -Eq '"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"' <<<"${status}" \
+    || fail "Hermes auth provider is not self-hosted OIDC (password-only is unsafe in public); configure Google OIDC (see docs/runbooks/dashboard-domain.md)"
 }
 
 install_caddy_package() {
@@ -60,7 +63,7 @@ verify_https() {
 main() {
   [[ "${EUID}" -eq 0 ]] || fail "must run as root"
   log "publishing Hermes dashboard at https://${DASHBOARD_FQDN}"
-  assert_hermes_requires_auth
+  assert_hermes_requires_oidc
   install_caddy_package
 
   local changed=0
