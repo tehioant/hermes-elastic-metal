@@ -22,8 +22,12 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   `/usr/local/sbin`, driven by systemd timers in `systemd/`.
 - `scripts/install-caddy.sh` + `config/caddy/Caddyfile` — publishes the Hermes
   dashboard (`127.0.0.1:9119`) at `https://apollo.antelab.eu`; opens 80/443
-  only if Hermes `/api/status` reports `auth_required: true`. Guide:
-  `docs/runbooks/dashboard-domain.md`.
+  only if Hermes `/api/status` reports `auth_required: true` with the
+  `self-hosted` OIDC provider. Guide: `docs/runbooks/dashboard-domain.md`.
+- Dashboard auth = Hermes built-in OIDC → Google (`~/.hermes/.env` on host,
+  not in repo). Allowlist = Google app **test users** (app stays *Testing*;
+  publishing opens it to every Google account). No roles: every user is admin.
+  No refresh token → silent Google re-login ~hourly.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
@@ -62,6 +66,8 @@ shellcheck scripts/*.sh config/docker/*.sh
 - Published container port unreachable → add `port cidr` to
   `/etc/docker/published-ports.allow`, `sudo systemctl restart docker-user-rules`.
 - `healthcheck` failing → `journalctl -u healthcheck --since today`.
+- `PUBLIC WITHOUT OIDC AUTH` → `sudo systemctl stop caddy`, fix Hermes OIDC
+  env, re-run `install-caddy.sh`; locked out → break-glass in the runbook.
 - Backup failing → `journalctl -u restic-backup`; another job holding
   `/run/lock/restic.lock` (drill) makes backup exit immediately by design.
 - RAID degraded → `cat /proc/mdstat`, `smartctl -a /dev/sdX`; open a Scaleway

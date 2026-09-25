@@ -93,11 +93,13 @@ check_dashboard_proxy() {
     bad "dashboard proxy: caddy not active"
     return
   fi
-  if curl -fsS --max-time 5 http://127.0.0.1:9119/api/status \
-      | grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true'; then
-    ok "dashboard proxy: caddy active, hermes auth required"
+  local status
+  status="$(curl -fsS --max-time 5 http://127.0.0.1:9119/api/status 2>/dev/null)"
+  if grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true' <<<"${status}" \
+      && grep -Eq '"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"' <<<"${status}"; then
+    ok "dashboard proxy: caddy active, hermes OIDC auth required"
   else
-    bad "dashboard proxy: PUBLIC WITHOUT AUTH or hermes down — check /api/status; stop caddy if auth is off"
+    bad "dashboard proxy: PUBLIC WITHOUT OIDC AUTH or hermes down — check /api/status; stop caddy if auth is off"
   fi
 }
 
