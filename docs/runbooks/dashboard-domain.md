@@ -50,10 +50,13 @@ give SSH access to.
 ### 1. Prerequisites
 
 - A record resolves to the server (see *Verify* above).
-- Hermes dashboard running natively under systemd, bound to `127.0.0.1:9119`.
+- Hermes installed natively for `ops` in `/home/ops/.hermes` (same install as
+  the `hermes-gateway` user service). `install-caddy.sh` runs the dashboard as
+  the system service `hermes-dashboard` (`systemd/hermes-dashboard.service`),
+  bound to `127.0.0.1:9119`.
 - A Hermes version where `dashboard.public_url` engages the auth gate on a
   loopback bind and `HERMES_DASHBOARD_OIDC_CLIENT_SECRET` is supported
-  (checked in step 3; upgrade Hermes if it fails).
+  (v0.21.4 verified; checked in step 4, upgrade Hermes if it fails).
 
 ### 2. Create the Google OAuth client (console, one-time)
 
@@ -74,8 +77,8 @@ Google OAuth clients for external apps cannot be managed by Terraform.
 
 ### 3. Configure Hermes (on the host, one-time)
 
-As the user running Hermes, add to `~/.hermes/.env` (loaded by Hermes at
-startup; never commit these values):
+As `ops`, add to `/home/ops/.hermes/.env` (loaded by Hermes at startup;
+never commit these values):
 
 ```bash
 HERMES_DASHBOARD_OIDC_ISSUER=https://accounts.google.com
@@ -86,12 +89,10 @@ HERMES_DASHBOARD_PUBLIC_URL=https://apollo.antelab.eu
 
 ```bash
 chmod 600 ~/.hermes/.env
-sudo systemctl restart <hermes unit>
-curl -s http://127.0.0.1:9119/api/status
-# must contain "auth_required": true and "auth_providers": ["self-hosted"]
+sudo systemctl restart hermes-dashboard   # only if the service already exists
 ```
 
-### 4. Install the proxy
+### 4. Start the dashboard and the proxy
 
 ```bash
 scripts/ship.sh ops@$(terraform -chdir=terraform output -raw ipv4)
@@ -103,9 +104,11 @@ scripts/ship.sh ops@$(terraform -chdir=terraform output -raw ipv4)
 ssh ops@<ip> sudo DASHBOARD_FQDN=apollo.antelab.eu bash /tmp/hermes/scripts/install-caddy.sh
 ```
 
-The script installs Caddy, deploys `config/caddy/Caddyfile`, sets
-`DASHBOARD_FQDN` in a `caddy.service` drop-in, validates the config, opens `80/tcp` + `443/tcp` in UFW,
-starts Caddy and checks HTTPS locally.
+The script installs and starts `hermes-dashboard.service`, waits for
+`/api/status` to report `auth_required: true` with `"self-hosted"`, then
+installs Caddy, deploys `config/caddy/Caddyfile`, sets `DASHBOARD_FQDN` in a
+`caddy.service` drop-in, validates the config, opens `80/tcp` + `443/tcp` in
+UFW, starts Caddy and checks HTTPS locally.
 
 ### 5. Verify
 
@@ -135,7 +138,7 @@ Sessions last about an hour, then Hermes silently re-runs the Google login.
 ```bash
 ssh ops@<ip> sudo systemctl stop caddy                  # never expose without auth
 # on the host: comment out HERMES_DASHBOARD_PUBLIC_URL in ~/.hermes/.env, then
-ssh ops@<ip> sudo systemctl restart <hermes unit>       # loopback-only, no auth gate
+ssh ops@<ip> sudo systemctl restart hermes-dashboard    # loopback-only, no auth gate
 ssh -L 9119:127.0.0.1:9119 ops@<ip>                     # open http://127.0.0.1:9119
 ```
 
@@ -143,18 +146,23 @@ Revert the `.env` change, restart Hermes, then re-run `install-caddy.sh`.
 
 ### Troubleshooting
 
+- Script says dashboard not reachable → `journalctl -u hermes-dashboard -n 50`;
+  Hermes refuses to start when `HERMES_DASHBOARD_PUBLIC_URL` is set without a
+  working auth provider (finish step 3).
+- `hermes` crashes with `PermissionError: '/etc/hermes/.env'` → `/etc/hermes`
+  is root-only; `sudo chmod 0755 /etc/hermes` (see `firewall.md`).
 - Script says `auth_required != true` → finish step 3; if the values are set,
   Hermes is too old to gate a loopback bind behind `public_url` → upgrade.
 - Script says provider is not self-hosted OIDC → OIDC env vars missing/typo in
   `~/.hermes/.env`, or Hermes restarted before they were set; check
-  `journalctl -u <hermes unit> | grep dashboard-auth-self-hosted`.
+  `journalctl -u hermes-dashboard | grep dashboard-auth-self-hosted`.
 - Google `redirect_uri_mismatch` → client redirect URI must be exactly
   `https://apollo.antelab.eu/auth/callback` and `HERMES_DASHBOARD_PUBLIC_URL`
   exactly `https://apollo.antelab.eu`.
 - Google `Access blocked` for an allowed person → add them as test user.
 - Certificate not issued → `journalctl -u caddy`; port 80 must be reachable
   from the internet and DNS must point to the server.
-- 502 Bad Gateway → Hermes is down: `systemctl status <hermes unit>`.
+- 502 Bad Gateway → Hermes is down: `systemctl status hermes-dashboard`.
 - `healthcheck` reports `PUBLIC WITHOUT OIDC AUTH` → Hermes auth was lost
   (upgrade, config edit, missing OIDC secret). Run `sudo systemctl stop caddy`
   immediately, fix step 3, then re-run `install-caddy.sh`.

@@ -10,15 +10,20 @@ interface-only; keep public SSH limited to the existing `admin_cidrs`.
 
 The old bootstrap configured an active UFW but did not record its rules. The
 new script deliberately **fails without changing UFW** until you seed
-`/etc/hermes/ssh-admin-cidrs` with the CIDRs actually allowed by the old
-bootstrap. From a trusted SSH session on the server:
+`/var/lib/hermes-host/ssh-admin-cidrs` with the CIDRs actually allowed by the
+old bootstrap. From a trusted SSH session on the server:
 
 ```bash
 sudo ufw status verbose
-sudo install -d -m 0700 /etc/hermes
-sudo sh -c 'umask 077; printf "%s\n" "$1" > /etc/hermes/ssh-admin-cidrs' _ 'YOUR_CURRENT_ADMIN_CIDRS_COMMA_SEPARATED'
-sudo chmod 0600 /etc/hermes/ssh-admin-cidrs
+sudo install -d -m 0700 /var/lib/hermes-host
+sudo sh -c 'umask 077; printf "%s\n" "$1" > /var/lib/hermes-host/ssh-admin-cidrs' _ 'YOUR_CURRENT_ADMIN_CIDRS_COMMA_SEPARATED'
+sudo chmod 0600 /var/lib/hermes-host/ssh-admin-cidrs
 ```
+
+Never create `/etc/hermes` for this: Hermes reads `/etc/hermes/.env`, and a
+root-only `/etc/hermes` makes every `hermes` command (gateway included) crash
+with `PermissionError`. A file seeded at the old `/etc/hermes/ssh-admin-cidrs`
+path is moved automatically on the next bootstrap.
 
 Replace the placeholder with the **exact existing** SSH CIDRs after checking
 `ufw status`, not guessed values. Remove unexpected broad SSH or web rules

@@ -20,8 +20,12 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   `.restic-password` (gitignored) on first run.
 - `scripts/backup.sh` / `restore-drill.sh` / `healthcheck.sh` — installed to
   `/usr/local/sbin`, driven by systemd timers in `systemd/`.
-- `scripts/install-caddy.sh` + `config/caddy/Caddyfile` — publishes the Hermes
-  dashboard (`127.0.0.1:9119`) at `https://apollo.antelab.eu`; opens 80/443
+- Hermes itself is installed by hand for `ops` in `/home/ops/.hermes` (not by
+  this repo). Messaging runs as the `ops` user service `hermes-gateway`.
+- `scripts/install-caddy.sh` + `systemd/hermes-dashboard.service` +
+  `config/caddy/Caddyfile` — runs the Hermes dashboard as system service
+  `hermes-dashboard` (`127.0.0.1:9119`, user `ops`) and publishes it at
+  `https://apollo.antelab.eu`; opens 80/443
   only if Hermes `/api/status` reports `auth_required: true` with the
   `self-hosted` OIDC provider. Guide: `docs/runbooks/dashboard-domain.md`.
 - Dashboard auth = Hermes built-in OIDC → Google (`~/.hermes/.env` on host,
@@ -55,6 +59,9 @@ shellcheck scripts/*.sh config/docker/*.sh
 - IAM cannot scope to one bucket; the restic key has object R/W/D on the whole
   project. Ransomware guard = bucket versioning + Object Lock, not IAM.
 - Object Lock COMPLIANCE cannot be shortened or removed, even by the owner.
+- `/etc/hermes` belongs to Hermes (it reads `/etc/hermes/.env`); a root-only
+  `/etc/hermes` crashes every `hermes` command. Repo state lives in
+  `/var/lib/hermes-host/` (e.g. `ssh-admin-cidrs`).
 
 ## Troubleshooting
 - `SIGILL` / "Illegal instruction" in a container → image needs AVX2; rebuild
