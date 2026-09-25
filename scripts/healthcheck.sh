@@ -5,6 +5,8 @@ set -uo pipefail
 readonly DISK_USAGE_LIMIT=80
 readonly MEMORY_USAGE_LIMIT=90
 readonly RESTART_LOOP_THRESHOLD=3
+readonly AUTH_REQUIRED_PATTERN='"auth_required"[[:space:]]*:[[:space:]]*true'
+readonly OIDC_PROVIDER_PATTERN='"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"'
 failures=0
 
 ok()   { printf '✅ %s\n' "$*"; }
@@ -95,8 +97,7 @@ check_dashboard_proxy() {
   fi
   local status
   status="$(curl -fsS --max-time 5 http://127.0.0.1:9119/api/status 2>/dev/null)"
-  if grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true' <<<"${status}" \
-      && grep -Eq '"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"' <<<"${status}"; then
+  if grep -Eq "${AUTH_REQUIRED_PATTERN}" <<<"${status}" && grep -Eq "${OIDC_PROVIDER_PATTERN}" <<<"${status}"; then
     ok "dashboard proxy: caddy active, hermes OIDC auth required"
   else
     bad "dashboard proxy: PUBLIC WITHOUT OIDC AUTH or hermes down — check /api/status; stop caddy if auth is off"

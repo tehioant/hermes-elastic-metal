@@ -14,6 +14,8 @@ readonly CADDY_DROPIN=/etc/systemd/system/caddy.service.d/dashboard.conf
 readonly DASHBOARD_UNIT=hermes-dashboard.service
 readonly DASHBOARD_UNIT_SRC="${REPO_DIR}/systemd/${DASHBOARD_UNIT}"
 readonly DASHBOARD_UNIT_DST="/etc/systemd/system/${DASHBOARD_UNIT}"
+readonly AUTH_REQUIRED_PATTERN='"auth_required"[[:space:]]*:[[:space:]]*true'
+readonly OIDC_PROVIDER_PATTERN='"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"'
 
 log()  { printf '🔒 %s\n' "$*"; }
 fail() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -26,24 +28,29 @@ install_if_changed() {
   install -m 0644 -D "${src}" "${dst}"
 }
 
+enable_and_refresh_service() {
+  local unit="$1" config_changed="$2"
+  systemctl daemon-reload
+  systemctl enable --now "${unit}" >/dev/null
+  if (( config_changed )); then
+    systemctl restart "${unit}"
+  fi
+}
+
 start_hermes_dashboard() {
   log "starting ${DASHBOARD_UNIT} on 127.0.0.1:9119"
   local changed=0
   install_if_changed "${DASHBOARD_UNIT_SRC}" "${DASHBOARD_UNIT_DST}" && changed=1
-  systemctl daemon-reload
-  systemctl enable --now "${DASHBOARD_UNIT}" >/dev/null
-  if (( changed )); then
-    systemctl restart "${DASHBOARD_UNIT}"
-  fi
+  enable_and_refresh_service "${DASHBOARD_UNIT}" "${changed}"
 }
 
 assert_hermes_requires_oidc() {
   local status
   status="$(curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-all-errors "${HERMES_STATUS_URL}")" \
     || fail "Hermes dashboard not reachable at ${HERMES_STATUS_URL}; check: journalctl -u ${DASHBOARD_UNIT} (missing OIDC config makes it refuse to start)"
-  grep -Eq '"auth_required"[[:space:]]*:[[:space:]]*true' <<<"${status}" \
+  grep -Eq "${AUTH_REQUIRED_PATTERN}" <<<"${status}" \
     || fail "Hermes reports auth_required != true; configure Google OIDC before publishing (see docs/runbooks/dashboard-domain.md)"
-  grep -Eq '"auth_providers"[[:space:]]*:[[:space:]]*\[[^]]*"self-hosted"' <<<"${status}" \
+  grep -Eq "${OIDC_PROVIDER_PATTERN}" <<<"${status}" \
     || fail "Hermes auth provider is not self-hosted OIDC (password-only is unsafe in public); configure Google OIDC (see docs/runbooks/dashboard-domain.md)"
 }
 
@@ -88,11 +95,7 @@ main() {
     || fail "Caddyfile is invalid"
 
   open_web_ports
-  systemctl daemon-reload
-  systemctl enable --now caddy.service >/dev/null
-  if (( changed )); then
-    systemctl restart caddy.service
-  fi
+  enable_and_refresh_service caddy.service "${changed}"
   verify_https
   log "dashboard live at https://${DASHBOARD_FQDN}"
 }
