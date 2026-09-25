@@ -104,6 +104,15 @@ check_dashboard_proxy() {
   fi
 }
 
+check_netdata_login() {
+  systemctl list-unit-files oauth2-proxy-netdata.service >/dev/null 2>&1 || { ok "netdata login: not installed"; return; }
+  if systemctl is-active --quiet oauth2-proxy-netdata.service; then
+    ok "netdata login: oauth2-proxy active"
+  else
+    bad "netdata login: oauth2-proxy not active (netdata site returns 502) — journalctl -u oauth2-proxy-netdata"
+  fi
+}
+
 main() {
   check_raid
   check_smart
@@ -113,6 +122,7 @@ main() {
   check_ras
   check_last_backup
   check_dashboard_proxy
+  check_netdata_login
   (( failures == 0 )) || { printf '❌ %d check(s) failed\n' "${failures}" >&2; exit 1; }
   ok "all checks passed"
 }

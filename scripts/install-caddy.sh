@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Run the Hermes dashboard on 127.0.0.1:9119 (hermes-dashboard.service) and publish it
-# at https://${DASHBOARD_FQDN} through Caddy. Refuses to open 80/443 unless Hermes
-# reports auth_required=true with the self-hosted (Google) OIDC provider. Safe to re-run.
+# at https://${DASHBOARD_FQDN}, plus Netdata at https://${NETDATA_FQDN} behind oauth2-proxy,
+# through Caddy. Refuses to open 80/443 unless Hermes reports auth_required=true with the
+# self-hosted (Google) OIDC provider and oauth2-proxy is running. Stops Caddy if Netdata
+# answers without login. Safe to re-run.
 set -Eeuo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REPO_DIR
 readonly DASHBOARD_FQDN="${DASHBOARD_FQDN:?DASHBOARD_FQDN is required}"
+readonly NETDATA_FQDN="${NETDATA_FQDN:?NETDATA_FQDN is required}"
+readonly OAUTH2_PROXY_PING_URL=http://127.0.0.1:4180/ping
 readonly HERMES_STATUS_URL="${HERMES_STATUS_URL:-http://127.0.0.1:9119/api/status}"
 readonly CADDYFILE_SRC="${REPO_DIR}/config/caddy/Caddyfile"
 readonly CADDYFILE_DST=/etc/caddy/Caddyfile
@@ -54,6 +58,11 @@ assert_hermes_requires_oidc() {
     || fail "Hermes auth provider is not self-hosted OIDC (password-only is unsafe in public); configure Google OIDC (see docs/runbooks/dashboard-domain.md)"
 }
 
+assert_netdata_login_running() {
+  curl -fs -o /dev/null --max-time 5 "${OAUTH2_PROXY_PING_URL}" \
+    || fail "oauth2-proxy (Netdata login) not running on 127.0.0.1:4180; run install-oauth2-proxy.sh first"
+}
+
 install_caddy_package() {
   dpkg-query -W -f='${Status}' caddy 2>/dev/null | grep -qx 'install ok installed' && return
   log "installing caddy from Ubuntu archive"
@@ -64,7 +73,8 @@ install_caddy_package() {
 install_service_dropin() {
   local dropin status=0
   dropin="$(mktemp)"
-  printf '[Service]\nEnvironment=DASHBOARD_FQDN=%s\n' "${DASHBOARD_FQDN}" > "${dropin}"
+  printf '[Service]\nEnvironment=DASHBOARD_FQDN=%s\nEnvironment=NETDATA_FQDN=%s\n' \
+    "${DASHBOARD_FQDN}" "${NETDATA_FQDN}" > "${dropin}"
   install_if_changed "${dropin}" "${CADDY_DROPIN}" || status=$?
   rm -f "${dropin}"
   return "${status}"
@@ -81,11 +91,27 @@ verify_https() {
     || fail "https://${DASHBOARD_FQDN} not serving; check: journalctl -u caddy"
 }
 
+assert_netdata_requires_login() {
+  local url="https://${NETDATA_FQDN}/api/v1/info" status
+  status="$(curl -s -o /dev/null -w '%{http_code}' --retry 20 --retry-delay 3 --retry-all-errors \
+    --resolve "${NETDATA_FQDN}:443:127.0.0.1" "${url}")"
+  case "${status}" in
+    200)
+      systemctl stop caddy.service
+      fail "Netdata answered without login at ${url}; caddy stopped"
+      ;;
+    000)
+      fail "https://${NETDATA_FQDN} not serving (DNS or certificate); check: journalctl -u caddy"
+      ;;
+  esac
+}
+
 main() {
   [[ "${EUID}" -eq 0 ]] || fail "must run as root"
   log "publishing Hermes dashboard at https://${DASHBOARD_FQDN}"
   start_hermes_dashboard
   assert_hermes_requires_oidc
+  assert_netdata_login_running
   install_caddy_package
 
   local changed=0
@@ -97,7 +123,8 @@ main() {
   open_web_ports
   enable_and_refresh_service caddy.service "${changed}"
   verify_https
-  log "dashboard live at https://${DASHBOARD_FQDN}"
+  assert_netdata_requires_login
+  log "dashboard live at https://${DASHBOARD_FQDN}, netdata at https://${NETDATA_FQDN}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
