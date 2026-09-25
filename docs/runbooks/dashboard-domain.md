@@ -1,7 +1,7 @@
 # Dashboard domain and DNS
 
-Terraform registers `tehio.eu` with Scaleway for one year, enables annual
-auto-renewal, and creates an A record for `apollo.tehio.eu` pointing to the
+Terraform registers `ante.eu` with Scaleway for one year, enables annual
+auto-renewal, and creates an A record for `apollo.ante.eu` pointing to the
 Elastic Metal server's public IPv4. The registered domain and subdomain can
 be changed in Terraform code before purchase. The auto-CD runner does not read
 your laptop’s `terraform.tfvars`. A DNS record alone does not
@@ -9,7 +9,7 @@ start the dashboard, open a firewall port, or provide HTTPS/authentication.
 
 ## Before applying
 
-1. Search for `tehio.eu` in Scaleway **Domains and DNS**. If unavailable,
+1. Search for `ante.eu` in Scaleway **Domains and DNS**. If unavailable,
    choose an available name and change `dashboard_domain_name` in a reviewed
    Terraform PR (and your local tfvars, if used). Do not choose a name based
    on DNS lookup alone.
@@ -47,7 +47,7 @@ terraform -chdir=terraform show tfplan
 ```bash
 terraform -chdir=terraform output -raw dashboard_fqdn
 terraform -chdir=terraform output -raw ipv4
-dig +short A apollo.tehio.eu
+dig +short A apollo.ante.eu
 ```
 
 Check that the resolved A address matches the Terraform IPv4 output and that
