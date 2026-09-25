@@ -80,7 +80,7 @@ main() {
     systemctl restart netdata.service
   fi
   verify_loopback_only
-  log "Netdata ready on 127.0.0.1:19999 (use an SSH tunnel)"
+  log "Netdata ready on 127.0.0.1:19999 (published only via Caddy + Google login)"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
