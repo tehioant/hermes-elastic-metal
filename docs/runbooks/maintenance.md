@@ -35,9 +35,10 @@ After deploying through `ship.sh`, check the service and loopback endpoint:
 ssh ops@<ip> 'systemctl is-active netdata; sudo ss -ltnp "( sport = :19999 )"; curl -fsS http://127.0.0.1:19999/api/v1/info >/dev/null'
 ```
 
-From your laptop, use `ssh -N -L 19999:127.0.0.1:19999 ops@<ip>` and open
-`http://127.0.0.1:19999/` in your browser. Do **not** allow port 19999 in UFW,
-the Docker port allowlist, or the public DNS proxy. The config is owned by
+Open `https://netdata.antelab.eu` (Google login via oauth2-proxy, see
+`netdata-domain.md`), or use `ssh -N -L 19999:127.0.0.1:19999 ops@<ip>` and
+`http://127.0.0.1:19999/`. Do **not** allow port 19999 in UFW or the Docker
+port allowlist, and never proxy it without `forward_auth`. The config is owned by
 `config/netdata/netdata.conf` and applied by `install-netdata.sh`; do not edit it
 only on the server. To retry alone: `ssh ops@<ip> sudo bash /tmp/hermes/scripts/install-netdata.sh`.
 The script refuses a pre-existing Netdata package that it did not install
