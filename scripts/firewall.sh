@@ -2,7 +2,17 @@
 set -Eeuo pipefail
 
 readonly ADMIN_CIDRS="${ADMIN_CIDRS:?ADMIN_CIDRS is required}"
-readonly FIREWALL_STATE_FILE="${FIREWALL_STATE_FILE:-/etc/hermes/ssh-admin-cidrs}"
+readonly FIREWALL_STATE_FILE="${FIREWALL_STATE_FILE:-/var/lib/hermes-host/ssh-admin-cidrs}"
+readonly LEGACY_STATE_FILE=/etc/hermes/ssh-admin-cidrs
+
+migrate_legacy_state_file() {
+  [[ -s "${LEGACY_STATE_FILE}" && ! -e "${FIREWALL_STATE_FILE}" ]] || return 0
+  install -d -m 0700 "$(dirname "${FIREWALL_STATE_FILE}")"
+  mv "${LEGACY_STATE_FILE}" "${FIREWALL_STATE_FILE}"
+  rmdir --ignore-fail-on-non-empty "$(dirname "${LEGACY_STATE_FILE}")"
+}
+
+migrate_legacy_state_file
 
 if ufw status | grep -q '^Status: active' && [[ ! -s "${FIREWALL_STATE_FILE}" ]]; then
   printf 'Active UFW has no recorded SSH allowlist; seed %s after auditing current rules\n' "${FIREWALL_STATE_FILE}" >&2
