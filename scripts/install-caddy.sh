@@ -9,8 +9,7 @@ readonly DASHBOARD_FQDN="${DASHBOARD_FQDN:?DASHBOARD_FQDN is required}"
 readonly HERMES_STATUS_URL="${HERMES_STATUS_URL:-http://127.0.0.1:9119/api/status}"
 readonly CADDYFILE_SRC="${REPO_DIR}/config/caddy/Caddyfile"
 readonly CADDYFILE_DST=/etc/caddy/Caddyfile
-readonly CADDY_ENV=/etc/default/caddy
-readonly CADDY_DROPIN=/etc/systemd/system/caddy.service.d/env.conf
+readonly CADDY_DROPIN=/etc/systemd/system/caddy.service.d/dashboard.conf
 
 log()  { printf '🔒 %s\n' "$*"; }
 fail() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -37,15 +36,13 @@ install_caddy_package() {
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q caddy >/dev/null
 }
 
-write_environment() {
-  local tmp unchanged=1
-  tmp="$(mktemp)"
-  printf 'DASHBOARD_FQDN=%s\n' "${DASHBOARD_FQDN}" > "${tmp}"
-  install_if_changed "${tmp}" "${CADDY_ENV}" && unchanged=0
-  printf '[Service]\nEnvironmentFile=%s\n' "${CADDY_ENV}" > "${tmp}"
-  install_if_changed "${tmp}" "${CADDY_DROPIN}" && unchanged=0
-  rm -f "${tmp}"
-  return "${unchanged}"
+install_service_dropin() {
+  local dropin status=0
+  dropin="$(mktemp)"
+  printf '[Service]\nEnvironment=DASHBOARD_FQDN=%s\n' "${DASHBOARD_FQDN}" > "${dropin}"
+  install_if_changed "${dropin}" "${CADDY_DROPIN}" || status=$?
+  rm -f "${dropin}"
+  return "${status}"
 }
 
 open_web_ports() {
@@ -67,8 +64,8 @@ main() {
 
   local changed=0
   install_if_changed "${CADDYFILE_SRC}" "${CADDYFILE_DST}" && changed=1
-  write_environment && changed=1
-  DASHBOARD_FQDN="${DASHBOARD_FQDN}" caddy validate --config "${CADDYFILE_DST}" --adapter caddyfile >/dev/null \
+  install_service_dropin && changed=1
+  caddy validate --config "${CADDYFILE_DST}" --adapter caddyfile >/dev/null \
     || fail "Caddyfile is invalid"
 
   open_web_ports
