@@ -33,6 +33,7 @@ assert_hermes_requires_auth() {
 install_caddy_package() {
   dpkg-query -W -f='${Status}' caddy 2>/dev/null | grep -qx 'install ok installed' && return
   log "installing caddy from Ubuntu archive"
+  apt-get update -qq
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q caddy >/dev/null
 }
 
