@@ -30,9 +30,11 @@ context.
 ## Layout
 
 - `terraform/` — server, SSH key, backup bucket, IAM key (locked remote state)
-- `scripts/` — `bootstrap.sh` (idempotent host setup), `backup.sh`,
-  `restore-drill.sh`, `healthcheck.sh`, `ship.sh`
-- `config/` — files installed verbatim on the host
+- `scripts/` — `bootstrap.sh` (idempotent host setup), `install-netdata.sh`
+  (optional, independent monitoring), `backup.sh`, `restore-drill.sh`,
+  `healthcheck.sh`, `ship.sh`
+- `config/` — host configuration including the localhost-only Netdata dashboard
+  ([maintenance runbook](docs/runbooks/maintenance.md#host-metrics-netdata))
 - `systemd/` — units and timers installed on the host
 - `docs/` — runbooks and agent context
 

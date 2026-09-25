@@ -49,6 +49,15 @@ RESTIC_PASSWORD='${restic_password}'
 AWS_ACCESS_KEY_ID='${access_key}'
 AWS_SECRET_ACCESS_KEY='${secret_key}'
 EOF
+
+  install_netdata
+}
+
+install_netdata() {
+  local operator_target="${TARGET/#root@/ops@}"
+  printf '📈 installing Netdata on %s\n' "${operator_target}"
+  ssh "${operator_target}" "sudo bash ${REMOTE_DIR}/scripts/install-netdata.sh </dev/null" \
+    || printf '⚠️  Netdata install failed; host bootstrap is complete. Re-run: ssh %s sudo bash %s/scripts/install-netdata.sh\n' "${operator_target}" "${REMOTE_DIR}" >&2
 }
 
 main "$@"

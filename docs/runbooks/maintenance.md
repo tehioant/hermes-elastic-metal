@@ -19,11 +19,39 @@
 ssh ops@<ip> 'sudo healthcheck.sh; docker ps --format "table {{.Names}}\t{{.Status}}"; df -h /'
 ```
 
+## Host metrics (Netdata)
+
+`install-netdata.sh` (run by `ship.sh` after `bootstrap.sh`, independently:
+a Netdata failure only warns and never blocks host setup) installs the stable
+**native** Netdata package from Netdata's
+repository (not a privileged Docker container), enables its updater, and keeps
+its dashboard bound to `127.0.0.1:19999`. Anonymous telemetry is disabled and
+no Netdata Cloud account is required. Its history is local to the host; it is
+not an off-host backup or an external availability check.
+
+After deploying through `ship.sh`, check the service and loopback endpoint:
+
+```bash
+ssh ops@<ip> 'systemctl is-active netdata; sudo ss -ltnp "( sport = :19999 )"; curl -fsS http://127.0.0.1:19999/api/v1/info >/dev/null'
+```
+
+From your laptop, use `ssh -N -L 19999:127.0.0.1:19999 ops@<ip>` and open
+`http://127.0.0.1:19999/` in your browser. Do **not** allow port 19999 in UFW,
+the Docker port allowlist, or the public DNS proxy. The config is owned by
+`config/netdata/netdata.conf` and applied by `install-netdata.sh`; do not edit it
+only on the server. To retry alone: `ssh ops@<ip> sudo bash /tmp/hermes/scripts/install-netdata.sh`.
+The script refuses a pre-existing Netdata package that it did not install
+itself; inspect or remove that package deliberately before rerunning.
+For upgrades, check the installed updater schedule (systemd timer or cron)
+and its logs; Netdata's kickstart installer enables automatic updates on the
+stable channel.
+
 ## Alerting
 
-v1 has no external alerting (personal account). `healthcheck.service` exits
-non-zero on any failure, so the cheapest upgrade is an `OnFailure=` unit that
-POSTs to a webhook (ntfy, Slack, e-mail). Add it in `systemd/` and re-ship.
+Netdata's local charts/alerts cannot report a full host outage. The existing
+`healthcheck.service` also exits non-zero on failures, but has no notification
+route. Add an `OnFailure=` webhook unit separately once a dedicated alert
+channel is available, and use an off-host heartbeat for host-down detection.
 
 ## Upgrading Docker
 
