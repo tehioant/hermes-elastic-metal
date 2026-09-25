@@ -82,6 +82,12 @@ variable "dashboard_subdomain" {
   default     = "apollo"
 }
 
+variable "netdata_subdomain" {
+  description = "DNS label for the Netdata dashboard, beneath root_domain."
+  type        = string
+  default     = "netdata"
+}
+
 variable "tags" {
   description = "Tags applied to every resource."
   type        = list(string)

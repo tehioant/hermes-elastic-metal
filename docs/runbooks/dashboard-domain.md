@@ -101,14 +101,16 @@ scripts/ship.sh ops@$(terraform -chdir=terraform output -raw ipv4)
 `ship.sh` runs `install-caddy.sh` after bootstrap. To run it alone:
 
 ```bash
-ssh ops@<ip> sudo DASHBOARD_FQDN=apollo.antelab.eu bash /tmp/hermes/scripts/install-caddy.sh
+ssh ops@<ip> sudo DASHBOARD_FQDN=apollo.antelab.eu NETDATA_FQDN=netdata.antelab.eu bash /tmp/hermes/scripts/install-caddy.sh
 ```
 
 The script installs and starts `hermes-dashboard.service`, waits for
 `/api/status` to report `auth_required: true` with `"self-hosted"`, then
 installs Caddy, deploys `config/caddy/Caddyfile`, sets `DASHBOARD_FQDN` in a
 `caddy.service` drop-in, validates the config, opens `80/tcp` + `443/tcp` in
-UFW, starts Caddy and checks HTTPS locally.
+UFW, starts Caddy and checks HTTPS locally. The same Caddy also serves
+Netdata behind Google login (see `netdata-domain.md`), so it requires
+`NETDATA_FQDN` and a running oauth2-proxy.
 
 ### 5. Verify
 

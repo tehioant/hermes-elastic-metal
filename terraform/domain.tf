@@ -10,3 +10,11 @@ resource "scaleway_domain_record" "dashboard" {
   data     = local.server_ipv4
   ttl      = 3600
 }
+
+resource "scaleway_domain_record" "netdata" {
+  dns_zone = data.scaleway_domain_zone.root.domain
+  name     = var.netdata_subdomain
+  type     = "A"
+  data     = local.server_ipv4
+  ttl      = 3600
+}
