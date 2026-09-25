@@ -1,5 +1,6 @@
 locals {
   server_region = join("-", slice(split("-", var.zone), 0, 2))
+  server_ipv4   = [for ip in scaleway_baremetal_server.this.ips : ip.address if ip.version == "IPv4"][0]
 }
 
 check "backup_region_differs_from_server" {

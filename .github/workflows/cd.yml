@@ -22,7 +22,6 @@ env:
   SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_DEFAULT_ORGANIZATION_ID }}
   TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
   TF_VAR_admin_cidrs: ${{ secrets.ADMIN_CIDRS }}
-  TF_VAR_domain_owner: ${{ secrets.DOMAIN_OWNER }}
 
 jobs:
   plan:
