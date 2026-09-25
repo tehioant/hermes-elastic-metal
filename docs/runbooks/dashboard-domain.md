@@ -71,8 +71,8 @@ scripts/ship.sh ops@$(terraform -chdir=terraform output -raw ipv4)
 ssh ops@<ip> sudo DASHBOARD_FQDN=apollo.antelab.eu bash /tmp/hermes/scripts/install-caddy.sh
 ```
 
-The script installs Caddy, deploys `config/caddy/Caddyfile`, writes
-`/etc/default/caddy`, validates the config, opens `80/tcp` + `443/tcp` in UFW,
+The script installs Caddy, deploys `config/caddy/Caddyfile`, sets
+`DASHBOARD_FQDN` in a `caddy.service` drop-in, validates the config, opens `80/tcp` + `443/tcp` in UFW,
 starts Caddy and checks HTTPS locally.
 
 ### 4. Verify
