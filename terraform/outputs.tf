@@ -1,6 +1,6 @@
 output "ipv4" {
   description = "Public IPv4 of the server."
-  value       = [for ip in scaleway_baremetal_server.this.ips : ip.address if ip.version == "IPv4"][0]
+  value       = local.server_ipv4
 }
 
 output "domain" {

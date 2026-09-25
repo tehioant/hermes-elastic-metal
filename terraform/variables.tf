@@ -70,31 +70,16 @@ variable "backup_lock_days" {
   default     = 35
 }
 
-variable "dashboard_domain_name" {
-  description = "Registered domain for the Hermes dashboard. Applying the registration purchases it."
+variable "root_domain" {
+  description = "Existing Scaleway-registered root domain and DNS zone."
   type        = string
   default     = "antelab.eu"
 }
 
 variable "dashboard_subdomain" {
-  description = "DNS label for the dashboard, beneath dashboard_domain_name."
+  description = "DNS label for the dashboard, beneath root_domain."
   type        = string
   default     = "apollo"
-}
-
-variable "domain_owner" {
-  description = "Individual domain registrant. Supply in ignored tfvars or TF_VAR_domain_owner; details are stored in Terraform state."
-  type = object({
-    firstname      = string
-    lastname       = string
-    email          = string
-    phone_number   = string
-    address_line_1 = string
-    city           = string
-    zip            = string
-    country        = string
-  })
-  sensitive = true
 }
 
 variable "tags" {
