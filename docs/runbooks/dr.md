@@ -24,23 +24,27 @@ markers; the locked versions survive a compromised host key.
 
 ## Terraform state
 
-The [migration runbook](terraform-state.md) makes the private remote bucket
-the **authoritative** state; the laptop's original `terraform.tfstate` is
-only an encrypted pre-migration backup, not something to copy after each
-apply. Keep a separate encrypted, access-restricted backup of the remote
-state and protect access to the bucket's previous versions. State can contain
-IAM secrets, registrant details and a domain transfer code: never attach it
-to chat, issues or PRs.
+The private remote bucket is the **authoritative** state (see the
+[migration runbook](terraform-state.md)). The laptop's original
+`terraform.tfstate` is only an encrypted pre-migration backup; do not copy
+state after each apply. Keep a separate encrypted, access-restricted backup of
+the remote state and protect access to the bucket's previous versions. State
+can contain IAM secrets, registrant details and a domain transfer code: never
+attach it to chat, issues or PRs.
 
-If state is lost or corrupt, freeze manual and GitHub applies first. Preserve
-the current remote object and its versions. Recover the last known-good
-version of `hermes-elastic-metal/terraform.tfstate` through the storage console
-under a trusted operator account, keeping bucket versioning and encryption
-intact. Reinitialize Terraform against the same bucket, check lineage and
-resource addresses with the [read-only state guard](terraform-state.md), then
-review a new plan before unfreezing deployment. Never start with an empty
-backend or use `-lock=false`; importing resources is a last-resort manual
-recovery path if all protected state copies are lost.
+If state is lost or corrupt:
+
+1. Freeze manual and GitHub applies.
+2. Preserve the current remote object and its versions.
+3. Under a trusted operator account, recover the last known-good version of
+   `hermes-elastic-metal/terraform.tfstate` through the storage console,
+   keeping bucket versioning and encryption intact.
+4. Reinitialize Terraform against the same bucket and check lineage and
+   resource addresses with the [read-only state guard](terraform-state.md).
+5. Review a new plan before unfreezing deployment.
+
+Never start with an empty backend or use `-lock=false`. Importing resources is
+a last-resort manual recovery path if all protected state copies are lost.
 
 ## Monthly restore drill (mandatory)
 
