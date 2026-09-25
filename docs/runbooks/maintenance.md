@@ -21,7 +21,9 @@ ssh ops@<ip> 'sudo healthcheck.sh; docker ps --format "table {{.Names}}\t{{.Stat
 
 ## Host metrics (Netdata)
 
-`bootstrap.sh` installs the stable **native** Netdata package from Netdata's
+`install-netdata.sh` (run by `ship.sh` after `bootstrap.sh`, independently:
+a Netdata failure only warns and never blocks host setup) installs the stable
+**native** Netdata package from Netdata's
 repository (not a privileged Docker container), enables its updater, and keeps
 its dashboard bound to `127.0.0.1:19999`. Anonymous telemetry is disabled and
 no Netdata Cloud account is required. Its history is local to the host; it is
@@ -36,9 +38,10 @@ ssh ops@<ip> 'systemctl is-active netdata; sudo ss -ltnp "( sport = :19999 )"; c
 From your laptop, use `ssh -N -L 19999:127.0.0.1:19999 ops@<ip>` and open
 `http://127.0.0.1:19999/` in your browser. Do **not** allow port 19999 in UFW,
 the Docker port allowlist, or the public DNS proxy. The config is owned by
-`config/netdata/netdata.conf` and applied by `bootstrap.sh`; do not edit it only
-on the server. Bootstrap refuses a pre-existing Netdata package that it did
-not install itself; inspect or remove that package deliberately before rerunning.
+`config/netdata/netdata.conf` and applied by `install-netdata.sh`; do not edit it
+only on the server. To retry alone: `ssh ops@<ip> sudo bash /tmp/hermes/scripts/install-netdata.sh`.
+The script refuses a pre-existing Netdata package that it did not install
+itself; inspect or remove that package deliberately before rerunning.
 For upgrades, check the installed updater schedule (systemd timer or cron)
 and its logs; Netdata's kickstart installer enables automatic updates on the
 stable channel.
