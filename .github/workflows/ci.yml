@@ -32,3 +32,5 @@ jobs:
         run: terraform -chdir=terraform validate -no-color
       - name: Plan
         run: terraform -chdir=terraform plan -input=false -no-color -lock-timeout=10m
+      - name: Test firewall reconciliation
+        run: python3 -m unittest discover -s tests -p test_firewall.py -v
