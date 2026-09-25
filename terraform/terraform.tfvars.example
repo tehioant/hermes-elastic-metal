@@ -6,6 +6,21 @@ ssh_public_key = "ssh-ed25519 AAAA... you@example.com"
 # curl -4 -s ifconfig.me  ->  append /32
 admin_cidrs = ["203.0.113.4/32"]
 
+# Fill this in terraform.tfvars (gitignored), never with invented details.
+domain_owner = {
+  firstname      = "<first-name>"
+  lastname       = "<last-name>"
+  email          = "<email-address>"
+  phone_number   = "<international-phone-number>"
+  address_line_1 = "<street-address>"
+  city           = "<city>"
+  zip            = "<postal-code>"
+  country        = "<two-letter-country-code>"
+}
+
+# dashboard_domain_name = "ante.eu"
+# dashboard_subdomain   = "apollo"
+
 # zone               = "fr-par-2"
 # hostname           = "emeta-01"
 # backup_region      = "nl-ams"
