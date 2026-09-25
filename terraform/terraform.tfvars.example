@@ -18,7 +18,7 @@ domain_owner = {
   country        = "<two-letter-country-code>"
 }
 
-# dashboard_domain_name = "tehio.eu"
+# dashboard_domain_name = "ante.eu"
 # dashboard_subdomain   = "apollo"
 
 # zone               = "fr-par-2"
