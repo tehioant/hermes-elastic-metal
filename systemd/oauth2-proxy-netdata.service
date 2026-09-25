@@ -1,0 +1,15 @@
+[Unit]
+Description=oauth2-proxy Google login for the Netdata dashboard (loopback, used by Caddy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+EnvironmentFile=/etc/oauth2-proxy/netdata.env
+ExecStart=/usr/local/bin/oauth2-proxy --config=/etc/oauth2-proxy/netdata.cfg
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
