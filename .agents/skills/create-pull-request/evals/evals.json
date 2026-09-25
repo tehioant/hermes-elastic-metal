@@ -1,0 +1,23 @@
+{
+  "skill_name": "create-pull-request",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm on main and just fixed the terraform state lock timeout in infra/backend.tf (uncommitted). Open a PR for it. DRY RUN: do not run git push or gh pr create; write the planned branch, title, body, labels, reviewer and exact commands to outputs/pr_plan.md.",
+      "expected_output": "Branch fix/<kebab>, title 'fix(...): ...', templated body, 1-3 existing labels incl. bug, reviewer set, gh pr create command with --label and --reviewer.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "push and create the pr for my current branch cd/terraform-deploy, it adds the terraform deploy github workflow. DRY RUN: don't push or create anything, write the full plan and commands to outputs/pr_plan.md.",
+      "expected_output": "Keeps existing branch, ci/feat conventional title, description, 1-3 labels, reviewer, commands.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Create a PR updating the README and docs/contexts/hermes-host.md with setup instructions, needs to go in a new branch. DRY RUN only - write plan and commands to outputs/pr_plan.md.",
+      "expected_output": "Branch docs/<kebab>, title 'docs(...): ...', documentation label, description, reviewer.",
+      "files": []
+    }
+  ]
+}
