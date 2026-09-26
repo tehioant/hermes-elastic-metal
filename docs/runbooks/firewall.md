@@ -44,7 +44,8 @@ From a phone: install the Tailscale app, log in with the same account, then SSH
 The tailnet policy lives in `tailscale/policy.hujson`: deny by default, only
 `autogroup:admin` devices → `tag:metal:22`. Apply it by pasting the file into
 the [admin console](https://login.tailscale.com/admin/acls) (its `tests` block
-must pass), **then** re-run `install-tailscale.sh` so the host advertises
+must pass; test sources must be real users like `tehioant@github`, not
+`autogroup:admin`), **then** re-run `install-tailscale.sh` so the host advertises
 `tag:metal` (tagged nodes have no key expiry). Order matters: an undefined tag
 is rejected. The rule alone is not an authentication mechanism: the SSH key is
 checked separately. Grant `tag:ci` only when CI deploys exist. Keep the public
