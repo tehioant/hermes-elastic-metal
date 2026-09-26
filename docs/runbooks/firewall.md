@@ -41,12 +41,14 @@ ssh -t ops@<ip> 'sudo bash /tmp/hermes/scripts/install-tailscale.sh'
 From a phone: install the Tailscale app, log in with the same account, then SSH
 (Termius/Blink, your SSH key) to `ops@emeta-01` or its `100.x` address.
 
-Once the tailnet policy exists, tag the host `tag:metal`. In that policy, deny by
-default and grant only `tag:ci` → `tag:metal`:22 for deployment. The rule
-alone is not an authentication mechanism: the SSH key is checked separately.
-Verify SSH to the host's Tailscale address from an authorized device before
-shipping through CI. Keep the existing public admin SSH fallback until the
-private path has been tested.
+The tailnet policy lives in `tailscale/policy.hujson`: deny by default, only
+`autogroup:admin` devices → `tag:metal:22`. Apply it by pasting the file into
+the [admin console](https://login.tailscale.com/admin/acls) (its `tests` block
+must pass), **then** re-run `install-tailscale.sh` so the host advertises
+`tag:metal` (tagged nodes have no key expiry). Order matters: an undefined tag
+is rejected. The rule alone is not an authentication mechanism: the SSH key is
+checked separately. Grant `tag:ci` only when CI deploys exist. Keep the public
+admin SSH fallback.
 
 After adding Tailscale, run the updated bootstrap once from the trusted
 admin session with the same `ADMIN_CIDRS` used by Terraform. Verify
