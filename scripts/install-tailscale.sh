@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install Tailscale from its signed apt repo and join the tailnet via an interactive login URL.
 # Independent from bootstrap.sh: a failure here never blocks host setup. Safe to re-run.
-# Usage (needs a TTY for the login URL): ssh -t ops@HOST 'sudo bash install-tailscale.sh'
+# Usage (needs a TTY for the login URL): ssh -t ops@HOST 'sudo bash /tmp/hermes/scripts/install-tailscale.sh'
 set -Eeuo pipefail
 
 readonly KEYRING=/usr/share/keyrings/tailscale-archive-keyring.gpg
