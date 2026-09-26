@@ -39,7 +39,7 @@ install_package() {
   fi
   add_apt_repository
   apt-get update -q
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -q tailscale
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q tailscale jq
   systemctl enable --now tailscaled >/dev/null
 }
 
