@@ -49,7 +49,8 @@ install_base_packages() {
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     ca-certificates curl gnupg ufw fail2ban unattended-upgrades \
-    smartmontools mdadm restic chrony needrestart jq rasdaemon
+    smartmontools mdadm restic chrony needrestart jq rasdaemon \
+    ffmpeg libopus0
 }
 
 install_docker() {

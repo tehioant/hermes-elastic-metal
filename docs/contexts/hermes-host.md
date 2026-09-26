@@ -50,6 +50,9 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   in local `.env` via `ship.sh`; unset = logged only). Triggers:
   `OnFailure=notify-failure@` on healthcheck/restic-backup, `notify-boot`,
   `notify-reboot-required.path`, fail2ban `discord` action on the sshd jail.
+- Discord voice (`/voice join`): `ffmpeg` + `libopus0` from `bootstrap.sh`;
+  Hermes `[messaging]` extra + `stt: local (base)`, `tts: edge` in
+  `/home/ops/.hermes/config.yaml` (host, not repo). Bot needs Connect/Speak.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
