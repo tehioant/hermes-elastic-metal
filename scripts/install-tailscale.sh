@@ -7,6 +7,7 @@ set -Eeuo pipefail
 readonly KEYRING=/usr/share/keyrings/tailscale-archive-keyring.gpg
 readonly SOURCES_LIST=/etc/apt/sources.list.d/tailscale.list
 readonly NODE_HOSTNAME="${TAILSCALE_HOSTNAME:-emeta-01}"
+readonly NODE_TAG=tag:metal
 
 log()  { printf '🔒 %s\n' "$*"; }
 fail() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -38,7 +39,7 @@ install_package() {
   fi
   add_apt_repository
   apt-get update -q
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -q tailscale
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q tailscale jq
   systemctl enable --now tailscaled >/dev/null
 }
 
@@ -46,18 +47,24 @@ is_logged_in() {
   tailscale status --json 2>/dev/null | grep -q '"BackendState": *"Running"'
 }
 
+is_tagged() {
+  tailscale status --json | jq -e --arg tag "${NODE_TAG}" '.Self.Tags // [] | index($tag)' >/dev/null
+}
+
 join_tailnet() {
-  if is_logged_in; then
-    log "already connected to the tailnet"
+  if is_logged_in && is_tagged; then
+    log "already connected to the tailnet as ${NODE_TAG}"
     return
   fi
-  log "open the login URL below to approve ${NODE_HOSTNAME}"
-  tailscale up --hostname="${NODE_HOSTNAME}" --ssh=false || fail "tailscale up failed"
+  log "joining as ${NODE_TAG}; if a login URL appears, open it to approve ${NODE_HOSTNAME}"
+  tailscale up --hostname="${NODE_HOSTNAME}" --advertise-tags="${NODE_TAG}" --ssh=false \
+    || fail "tailscale up failed (is ${NODE_TAG} defined in tailscale/policy.hujson and applied?)"
 }
 
 verify() {
   is_logged_in || fail "node is not connected"
-  log "✅ connected as ${NODE_HOSTNAME} — $(tailscale ip -4)"
+  is_tagged || fail "node is not tagged ${NODE_TAG}"
+  log "✅ connected as ${NODE_HOSTNAME} (${NODE_TAG}) — $(tailscale ip -4)"
 }
 
 main() {

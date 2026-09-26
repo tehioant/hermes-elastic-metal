@@ -1,0 +1,25 @@
+// Tailnet access policy. Source of truth: paste into https://login.tailscale.com/admin/acls
+// Anything not granted below is denied, including traffic from the server to your devices.
+{
+  "tagOwners": {
+    "tag:metal": ["autogroup:admin"],
+  },
+
+  "grants": [
+    {
+      "src": ["autogroup:admin"],
+      "dst": ["tag:metal"],
+      "ip":  ["tcp:22"],
+    },
+  ],
+
+  "ssh": [],
+
+  "tests": [
+    {
+      "src":    "autogroup:admin",
+      "accept": ["tag:metal:22"],
+      "deny":   ["tag:metal:80", "tag:metal:443", "tag:metal:19999"],
+    },
+  ],
+}
