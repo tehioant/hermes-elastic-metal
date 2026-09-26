@@ -30,8 +30,18 @@ Replace the placeholder with the **exact existing** SSH CIDRs after checking
 manually before relying on automation. Confirm the Scaleway console/recovery
 path is available and keep a second admin SSH session open for the cutover.
 
-Install Tailscale on the host through its official Linux instructions, tag it
-as `tag:metal`, and verify it is online. In your tailnet policy, deny by
+Install Tailscale on the host with the repo script, after `ship.sh` has copied
+the repo to `/tmp/hermes` (needs a TTY for the login URL; open it and approve
+the device):
+
+```bash
+ssh -t ops@<ip> 'sudo bash /tmp/hermes/scripts/install-tailscale.sh'
+```
+
+From a phone: install the Tailscale app, log in with the same account, then SSH
+(Termius/Blink, your SSH key) to `ops@emeta-01` or its `100.x` address.
+
+Once the tailnet policy exists, tag the host `tag:metal`. In that policy, deny by
 default and grant only `tag:ci` → `tag:metal`:22 for deployment. The rule
 alone is not an authentication mechanism: the SSH key is checked separately.
 Verify SSH to the host's Tailscale address from an authorized device before
