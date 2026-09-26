@@ -2,13 +2,13 @@
 
 | Cadence | Action | How |
 |---|---|---|
-| Continuous | Security patches (no auto-reboot) | `unattended-upgrades` (installed by bootstrap) |
+| Continuous | Security patches, auto-reboot at 04:00 (server time) only when required | `unattended-upgrades` (installed by bootstrap) |
 | Daily 02:30 | Backup to Object Storage | `restic-backup.timer` |
 | Daily 07:00 | Health check (RAID, SMART, disk, memory, containers, RAS, last backup) | `healthcheck.timer` — `journalctl -u healthcheck` |
 | Weekly Sun 02:00 | SMART short self-test | `smartd` (`DEVICESCAN -s (S/../.././02)`) |
 | Weekly Sun 03:00 | Prune images/containers/networks older than 7 days | `docker-prune.timer` |
 | Monthly | Restore drill | `sudo bash -c 'set -a; . /etc/restic/env; restore-drill.sh'` |
-| Monthly | Reboot window for kernel updates | `sudo needrestart -r l` → `sudo reboot` if a kernel is pending |
+| Monthly | Check the nightly reboots happened | `last reboot \| head`; manual: `sudo reboot` if `/var/run/reboot-required` exists |
 | Monthly | Copy `terraform/terraform.tfstate` off-laptop | manual |
 | Quarterly | Terraform drift check | `terraform -chdir=terraform plan -detailed-exitcode` (exit 2 = drift) |
 | Quarterly | Review `admin_cidrs`, rotate restic IAM key | `terraform taint scaleway_iam_api_key.backup && terraform apply` then `ship.sh` |
