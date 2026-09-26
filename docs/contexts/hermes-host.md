@@ -45,6 +45,11 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   (deny by default, `autogroup:admin` → `tag:metal:22` only), pasted manually
   into the admin console. Public `admin_cidrs` SSH
   stays as permanent fallback. Guide: `docs/runbooks/firewall.md`.
+- Alerts → Discord: `scripts/notify.sh` (→ `/usr/local/sbin`) posts to the
+  webhook in `/etc/hermes-host/alerts.env` (0600, from `DISCORD_WEBHOOK_URL`
+  in local `.env` via `ship.sh`; unset = logged only). Triggers:
+  `OnFailure=notify-failure@` on healthcheck/restic-backup, `notify-boot`,
+  `notify-reboot-required.path`, fail2ban `discord` action on the sshd jail.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
@@ -89,6 +94,7 @@ shellcheck scripts/*.sh config/docker/*.sh
 - Published container port unreachable → add `port cidr` to
   `/etc/docker/published-ports.allow`, `sudo systemctl restart docker-user-rules`.
 - `healthcheck` failing → `journalctl -u healthcheck --since today`.
+- No Discord alert → `journalctl -t notify`; test: `sudo notify.sh test`.
 - `PUBLIC WITHOUT OIDC AUTH` → `sudo systemctl stop caddy`, fix Hermes OIDC
   env, re-run `install-caddy.sh`; locked out → break-glass in the runbook.
 - netdata.antelab.eu 502 / `netdata login: oauth2-proxy not active` →

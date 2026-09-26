@@ -1,0 +1,11 @@
+[Unit]
+Description=Discord alert: server booted
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/notify.sh "🔄 booted (kernel %v)"
+
+[Install]
+WantedBy=multi-user.target

@@ -5,6 +5,7 @@
 # Optional env:  DOCKER_USER   unprivileged operator account (default: ops)
 #                RESTIC_REPOSITORY, RESTIC_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 #                (all four required together to configure backups)
+#                DISCORD_WEBHOOK_URL (enables Discord alerts)
 set -Eeuo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -121,6 +122,33 @@ configure_auto_updates() {
   systemctl enable --now fail2ban >/dev/null
 }
 
+install_alerts() {
+  log "installing Discord alerts (failures, boot, reboot required, fail2ban bans)"
+  install -m 0755 "${REPO_DIR}/scripts/notify.sh" /usr/local/sbin/notify.sh
+  local unit
+  for unit in notify-failure@.service notify-boot.service notify-reboot-required.service notify-reboot-required.path; do
+    install_if_changed "${REPO_DIR}/systemd/${unit}" "/etc/systemd/system/${unit}" || true
+  done
+  systemctl daemon-reload
+  systemctl enable notify-boot.service >/dev/null
+  systemctl enable --now notify-reboot-required.path >/dev/null
+
+  local fail2ban_changed=false conf
+  for conf in action.d/discord.conf jail.d/discord.local; do
+    install_if_changed "${REPO_DIR}/config/fail2ban/${conf}" "/etc/fail2ban/${conf}" && fail2ban_changed=true
+  done
+  if [[ "${fail2ban_changed}" == true ]]; then
+    systemctl restart fail2ban
+  fi
+
+  if [[ -z "${DISCORD_WEBHOOK_URL:-}" ]]; then
+    warn "DISCORD_WEBHOOK_URL not provided: alerts are logged only (re-run with it set)"
+    return
+  fi
+  install -d -m 0700 /etc/hermes-host
+  ( umask 077; printf 'DISCORD_WEBHOOK_URL=%s\n' "${DISCORD_WEBHOOK_URL}" > /etc/hermes-host/alerts.env )
+}
+
 configure_disk_monitoring() {
   log "enabling smartd, mdmonitor and rasdaemon"
   sed -i 's|^DEVICESCAN.*|DEVICESCAN -a -o on -S on -s (S/../.././02) -m root|' /etc/smartd.conf
@@ -193,6 +221,7 @@ main() {
   harden_ssh
   configure_firewall
   configure_auto_updates
+  install_alerts
   configure_disk_monitoring
   install_backup
   install_maintenance_timers

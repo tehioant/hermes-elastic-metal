@@ -48,6 +48,7 @@ RESTIC_REPOSITORY='${restic_repository}'
 RESTIC_PASSWORD='${restic_password}'
 AWS_ACCESS_KEY_ID='${access_key}'
 AWS_SECRET_ACCESS_KEY='${secret_key}'
+DISCORD_WEBHOOK_URL='${DISCORD_WEBHOOK_URL:-}'
 EOF
 
   install_netdata

@@ -1,0 +1,6 @@
+[Unit]
+Description=Discord alert: %i failed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/notify.sh "❌ %i failed — journalctl -u %i"
