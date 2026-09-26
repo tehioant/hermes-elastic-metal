@@ -38,6 +38,11 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   release + SHA-256 in `scripts/install-oauth2-proxy.sh`). Reuses the Hermes
   Google client from `/home/ops/.hermes/.env`; 12h sessions. Guide:
   `docs/runbooks/netdata-domain.md`.
+- `scripts/install-tailscale.sh` — independent, idempotent; signed apt repo,
+  joins the tailnet via interactive login URL as `emeta-01` (`100.84.28.18`).
+  Tailscale SSH off: OpenSSH + keys only, reachable via `22/tcp on tailscale0`.
+  No tag / tailnet policy yet (planned last step). Public `admin_cidrs` SSH
+  stays as permanent fallback. Guide: `docs/runbooks/firewall.md`.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
@@ -76,6 +81,8 @@ shellcheck scripts/*.sh config/docker/*.sh
   key is missing, boot rescue mode from the console (`docs/runbooks/rescue-mode.md`).
 - `ufw` allows only `admin_cidrs` on 22. New home IP → re-run `ship.sh` with
   updated `terraform.tfvars` or `sudo ufw allow from <cidr> to any port 22`.
+- Tailnet SSH times out → client device not in the tailnet, or
+  `tailscale status` on host not `Running`; re-run `install-tailscale.sh` with `ssh -t`.
 - Published container port unreachable → add `port cidr` to
   `/etc/docker/published-ports.allow`, `sudo systemctl restart docker-user-rules`.
 - `healthcheck` failing → `journalctl -u healthcheck --since today`.
