@@ -133,9 +133,10 @@ install_alerts() {
   systemctl enable notify-boot.service >/dev/null
   systemctl enable --now notify-reboot-required.path >/dev/null
 
-  local fail2ban_changed=false
-  install_if_changed "${REPO_DIR}/config/fail2ban/action.d/discord.conf" /etc/fail2ban/action.d/discord.conf && fail2ban_changed=true
-  install_if_changed "${REPO_DIR}/config/fail2ban/jail.d/discord.local" /etc/fail2ban/jail.d/discord.local && fail2ban_changed=true
+  local fail2ban_changed=false conf
+  for conf in action.d/discord.conf jail.d/discord.local; do
+    install_if_changed "${REPO_DIR}/config/fail2ban/${conf}" "/etc/fail2ban/${conf}" && fail2ban_changed=true
+  done
   if [[ "${fail2ban_changed}" == true ]]; then
     systemctl restart fail2ban
   fi
