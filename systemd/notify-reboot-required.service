@@ -3,4 +3,4 @@ Description=Discord alert: reboot required
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/notify.sh "♻️ reboot required — automatic reboot at 04:00 UTC"
+ExecStart=/usr/local/sbin/notify.sh "♻️ reboot required — automatic reboot at 04:00 server time"
