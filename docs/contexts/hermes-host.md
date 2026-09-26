@@ -41,7 +41,9 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
 - `scripts/install-tailscale.sh` — independent, idempotent; signed apt repo,
   joins the tailnet via interactive login URL as `emeta-01` (`tailscale ip -4`).
   Tailscale SSH off: OpenSSH + keys only, reachable via `22/tcp on tailscale0`.
-  No tag / tailnet policy yet (planned last step). Public `admin_cidrs` SSH
+  Host tagged `tag:metal` (no key expiry). Tailnet ACL = `tailscale/policy.hujson`
+  (deny by default, `autogroup:admin` → `tag:metal:22` only), pasted manually
+  into the admin console. Public `admin_cidrs` SSH
   stays as permanent fallback. Guide: `docs/runbooks/firewall.md`.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
