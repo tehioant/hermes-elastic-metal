@@ -51,8 +51,12 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   `OnFailure=notify-failure@` on healthcheck/restic-backup, `notify-boot`,
   `notify-reboot-required.path`, fail2ban `discord` action on the sshd jail.
 - Discord voice (`/voice join`): `ffmpeg` + `libopus0` from `bootstrap.sh`;
-  Hermes `[messaging]` extra + `stt: local (base)`, `tts: edge` in
+  `hermes pm install --extra voice` (records the extra in the PM-managed env
+  under `~/.hermes/installs/`; `hermes-agent/venv` is a stale 3.11 venv the
+  gateway does NOT use) + `stt: local (base)`, `tts: edge` in
   `/home/ops/.hermes/config.yaml` (host, not repo). Bot needs Connect/Speak.
+  Joins but never answers + `STT provider 'local' ... unavailable` in
+  `~/.hermes/logs/gateway.log` → re-run the `pm install` above.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
