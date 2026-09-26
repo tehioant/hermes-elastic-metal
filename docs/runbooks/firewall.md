@@ -30,11 +30,12 @@ Replace the placeholder with the **exact existing** SSH CIDRs after checking
 manually before relying on automation. Confirm the Scaleway console/recovery
 path is available and keep a second admin SSH session open for the cutover.
 
-Install Tailscale on the host with the repo script (needs a TTY for the login
-URL; open it and approve the device):
+Install Tailscale on the host with the repo script, after `ship.sh` has copied
+the repo to `/tmp/hermes` (needs a TTY for the login URL; open it and approve
+the device):
 
 ```bash
-scp scripts/install-tailscale.sh ops@<ip>:/tmp/ && ssh -t ops@<ip> 'sudo bash /tmp/install-tailscale.sh'
+ssh -t ops@<ip> 'sudo bash /tmp/hermes/scripts/install-tailscale.sh'
 ```
 
 From a phone: install the Tailscale app, log in with the same account, then SSH
