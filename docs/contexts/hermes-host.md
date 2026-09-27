@@ -57,6 +57,17 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   `/home/ops/.hermes/config.yaml` (host, not repo). Bot needs Connect/Speak.
   Joins but never answers + `STT provider 'local' ... unavailable` in
   `~/.hermes/logs/gateway.log` → re-run the `pm install` above.
+- Profile `ted-lasso` (host only, `~/.hermes/profiles/ted-lasso`): Chelsea's
+  assistant, Ted Lasso persona in `SOUL.md`, `timezone: America/Los_Angeles`.
+  Own Discord bot `Ted Lasso#8284`, `DISCORD_ALLOWED_USERS` = Antoine + Chelsea.
+  Cloned from default, then stripped: no GitHub/Notion/Bitwarden/Langfuse/OIDC
+  secrets, `secrets.bitwarden.enabled: false`, `plugins.enabled: []`,
+  `skills.disabled: [notion, github]`, server-admin local skills deleted.
+  Served by the default `hermes-gateway` (multiplexed profiles): use
+  `ted-lasso gateway restart`, never a separate service. Model = shared
+  Codex login. TTS = Edge `en-US-ChristopherNeural`; Gemini voice direction in
+  `tts/ted-voice.md` (free tier = 10 TTS requests/day/model, too low for daily use).
+  Over SSH, add `~/.local/bin` to `PATH` for `hermes`/`ted-lasso`.
 - `config/docker/published-ports.allow` (host-only file) — `port [source-cidr]`
   lines opened in the DOCKER-USER chain; empty by default = nothing published.
 
@@ -106,6 +117,9 @@ shellcheck scripts/*.sh config/docker/*.sh
   env, re-run `install-caddy.sh`; locked out → break-glass in the runbook.
 - netdata.antelab.eu 502 / `netdata login: oauth2-proxy not active` →
   `journalctl -u oauth2-proxy-netdata`, re-run `install-oauth2-proxy.sh`.
+- Ted speaks with the wrong voice → check `sed -n '/^tts:/,/^[a-z]/p'
+  ~/.hermes/profiles/ted-lasso/config.yaml`, then `ted-lasso gateway restart`.
+  Gemini `429 ... FreeTier limit 10` = daily TTS quota used; resets midnight PT.
 - Backup failing → `journalctl -u restic-backup`; another job holding
   `/run/lock/restic.lock` (drill) makes backup exit immediately by design.
 - RAID degraded → `cat /proc/mdstat`, `smartctl -a /dev/sdX`; open a Scaleway
