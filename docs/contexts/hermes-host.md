@@ -38,11 +38,12 @@ Object Storage in `nl-ams`. No Datadog, no private network, no CI (v1).
   release + SHA-256 in `scripts/install-oauth2-proxy.sh`). Reuses the Hermes
   Google client from `/home/ops/.hermes/.env`; 12h sessions. Guide:
   `docs/runbooks/netdata-domain.md`.
-- `terraform/modules/portfolio-dns` — optional `portfolio.antelab.eu` CNAME
-  to the actual Cloudflare Pages production hostname; no server/Caddy changes
-  or nameserver migration. Empty `portfolio_pages_hostname` means no record.
-  CI/CD uses repository variable `PORTFOLIO_PAGES_HOSTNAME`; tests mock only
-  the isolated DNS module. Guide: `docs/runbooks/portfolio-domain.md`.
+- `terraform/modules/portfolio-dns` — `portfolio.antelab.eu` CNAME
+  to `orbit-portfolio.pages.dev`; no server/Caddy changes or nameserver
+  migration. The production target is versioned in `terraform/variables.tf`,
+  not an Actions variable; PR CI plans it and CD applies on merge to `main`.
+  Tests mock the isolated DNS module and check the production configuration.
+  Guide: `docs/runbooks/portfolio-domain.md`.
 - `scripts/install-tailscale.sh` — independent, idempotent; signed apt repo,
   joins the tailnet via interactive login URL as `emeta-01` (`tailscale ip -4`).
   Tailscale SSH off: OpenSSH + keys only, reachable via `22/tcp on tailscale0`.

@@ -8,8 +8,9 @@ unchanged.
 
 ## 1. Deploy Pages and associate the custom domain
 
-1. Cloudflare **Workers & Pages → Pages → Connect to Git**: select the private
-   `tehioant/orbit-portfolio` repository, production branch `main`.
+1. Cloudflare **Workers & Pages → Create application → Continue to Pages**
+   (the dashboard may label this the legacy Pages workflow) → connect Git:
+   select the private `tehioant/orbit-portfolio` repo, production branch `main`.
 2. Build command `npm run build`, output directory `dist`, root directory blank,
    environment variable `NODE_VERSION=24`.
 3. Deploy and verify the production `*.pages.dev` URL. Copy the actual assigned
@@ -17,28 +18,33 @@ unchanged.
 4. Pages **Custom domains → Set up a domain**: add `portfolio.antelab.eu` and
    follow the external-DNS instructions. Do not migrate the `antelab.eu` zone.
 
-The exact Pages hostname is not known yet, so `portfolio_pages_hostname`
-defaults to empty and Terraform plans **no portfolio record**. Test fixture
-hostnames are not deployment values.
+The assigned production hostname is `orbit-portfolio.pages.dev`. The site
+has been checked in a browser. A `*.workers.dev` address belongs to a different
+product and must not be substituted for this Pages target.
 
-## 2. Configure Terraform (do not apply yet)
+## 2. Configure Terraform through a reviewed PR
 
-Set the exact production hostname in your gitignored `terraform/terraform.tfvars`:
+The production value is committed as the default of `portfolio_pages_hostname`
+in `terraform/variables.tf`:
 
 ```hcl
-# Replace this example with the hostname actually assigned by Cloudflare.
-portfolio_pages_hostname = "assigned-project.pages.dev"
+portfolio_pages_hostname = "orbit-portfolio.pages.dev"
 ```
 
-For GitHub Actions, set the **repository** Actions variable
-`PORTFOLIO_PAGES_HOSTNAME` to the same hostname. It is public DNS information,
-not a secret. Both PR CI and the CD plan/apply jobs read this variable. Use a
-repository variable, not an environment-only variable: CD's plan job does not
-use the production environment.
+CI and CD intentionally do not set `TF_VAR_portfolio_pages_hostname`: both
+use this reviewed Terraform default. The previously used repository variable
+`PORTFOLIO_PAGES_HOSTNAME` is no longer consumed, so a missing or empty Actions
+variable cannot silently disable the record. No extra GitHub variable is needed.
 
-**Changing this variable affects future CI/CD runs.** Only set it when the
-actual target is known and deployment is approved. Do not merge or dispatch CD
-without reviewing the full infrastructure plan and its production approval.
+Make target changes in a PR. PR CI runs a real read-only plan against the
+existing remote state; review it before merging. Merge to `main` triggers the
+existing CD plan/apply workflow (including any configured production approval).
+Do not dispatch CD or apply locally as part of preparing the PR.
+
+For local plans, check that ignored tfvars or shell `TF_VAR_` values do not
+accidentally override the production default. Test fixture hostnames are not
+deployment values; the reusable DNS module still accepts empty for callers
+that have not yet obtained their Pages hostname.
 
 Terraform creates:
 
@@ -46,7 +52,7 @@ Terraform creates:
 - Zone: existing `root_domain` (`antelab.eu` by default)
 - Label: `portfolio`
 - Type: `CNAME`
-- Target: supplied production hostname with one DNS root dot
+- Target: `orbit-portfolio.pages.dev.` (absolute DNS hostname)
 - TTL: 300 seconds
 
 URLs, paths, preview prefixes, whitespace, invalid labels, and other domains
@@ -80,7 +86,8 @@ Only after explicit approval:
 terraform -chdir=terraform apply tfplan
 ```
 
-Alternatively use the reviewed repo CD workflow and its production approval.
+The normal production path is to merge the reviewed PR and let CD deploy it;
+local apply commands above are for explicitly authorized manual operation only.
 Do not manually create a duplicate DNS record in the Scaleway console.
 
 ## 4. Verify
@@ -103,6 +110,7 @@ terraform -chdir=terraform init -backend=false
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform validate
 terraform -chdir=terraform test -filter=tests/portfolio_dns.tftest.hcl
+python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 The tests plan the actual isolated production DNS module with a mocked
