@@ -8,6 +8,8 @@ readonly STATE_DIR="${ROOT%/}/var/lib/hermes-netdata-metrics"
 readonly ETC_DIR="${ROOT%/}/etc/hermes-netdata-metrics"
 readonly UNIT="${ROOT%/}/etc/systemd/system/hermes-netdata-prometheus.service"
 readonly MARKER="${STATE_DIR}/managed-by-hermes"
+readonly PACKAGE_MARKER="${STATE_DIR}/prometheus-package-managed"
+readonly POLICY_RC="${ROOT%/}/usr/sbin/policy-rc.d"
 readonly SECURITY_MARKER="${ROOT%/}/var/lib/hermes-security-dashboard/managed-by-hermes"
 readonly GRAFANA_DATASOURCE="${ROOT%/}/etc/hermes-security-dashboard/provisioning/datasources/netdata-prometheus.yaml"
 readonly GRAFANA_PROVIDER="${ROOT%/}/etc/hermes-security-dashboard/provisioning/dashboards/netdata.yaml"
@@ -15,7 +17,7 @@ readonly GRAFANA_DASHBOARD_DIR="${ROOT%/}/etc/hermes-security-dashboard/netdata-
 readonly GRAFANA_DASHBOARD="${GRAFANA_DASHBOARD_DIR}/netdata.json"
 POLICY_RC_CREATED=0
 cleanup_policy() {
-  if (( POLICY_RC_CREATED )); then rm -f /usr/sbin/policy-rc.d; fi
+  if (( POLICY_RC_CREATED )); then rm -f "${POLICY_RC}"; fi
 }
 trap cleanup_policy EXIT
 
@@ -24,6 +26,31 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 disable_new_stock_prometheus() {
   systemctl disable --now prometheus.service || fail "failed to disable stock prometheus.service"
   systemctl mask prometheus.service || fail "failed to mask stock prometheus.service"
+}
+
+ensure_prometheus_package() {
+  local status=0
+  if [[ -e "${PACKAGE_MARKER}" ]]; then
+    [[ "$(<"${PACKAGE_MARKER}")" == netdata-prometheus-package-managed-v1 ]] \
+      || fail "Prometheus package ownership marker is invalid; inspect before adoption"
+  fi
+  if ! command -v prometheus >/dev/null 2>&1; then
+    [[ ! -e "${POLICY_RC}" ]] || fail "${POLICY_RC} exists; inspect before installing packages"
+    printf '%s\n' netdata-prometheus-package-managed-v1 > "${PACKAGE_MARKER}"
+    chmod 0600 "${PACKAGE_MARKER}"
+    printf '%s\n' '#!/bin/sh' 'exit 101' > "${POLICY_RC}"
+    chmod 0755 "${POLICY_RC}"
+    POLICY_RC_CREATED=1
+    apt-get install -y --no-install-recommends prometheus || status=$?
+    rm -f "${POLICY_RC}"
+    POLICY_RC_CREATED=0
+  fi
+  if [[ -f "${PACKAGE_MARKER}" ]] && command -v prometheus >/dev/null 2>&1; then
+    disable_new_stock_prometheus
+  elif [[ -f "${PACKAGE_MARKER}" ]]; then
+    rm -f "${PACKAGE_MARKER}"
+  fi
+  (( status == 0 )) || fail "failed to install Prometheus package (exit ${status})"
 }
 
 assert_safe_to_manage() {
@@ -60,19 +87,7 @@ main() {
   install -d -o root -g root -m 0755 "${STATE_DIR}" "${ETC_DIR}"
   printf '%s\n' netdata-prometheus-managed-v1 > "${MARKER}"
   chmod 0600 "${MARKER}"
-  if ! command -v prometheus >/dev/null 2>&1; then
-    policy=/usr/sbin/policy-rc.d
-    [[ ! -e "${policy}" ]] || fail "${policy} exists; inspect before installing packages"
-    printf '%s\n' '#!/bin/sh' 'exit 101' > "${policy}"
-    chmod 0755 "${policy}"
-    POLICY_RC_CREATED=1
-    status=0
-    apt-get install -y --no-install-recommends prometheus || status=$?
-    rm -f "${policy}"
-    POLICY_RC_CREATED=0
-    (( status == 0 )) || fail "failed to install Prometheus package (exit ${status})"
-    disable_new_stock_prometheus
-  fi
+  ensure_prometheus_package
   id prometheus >/dev/null 2>&1 || fail "Prometheus package must provide the prometheus service account"
   install -d -o prometheus -g prometheus -m 0750 "${STATE_DIR}/prometheus"
   install -d -o root -g prometheus -m 0750 "${ROOT%/}/etc/hermes-netdata-metrics"

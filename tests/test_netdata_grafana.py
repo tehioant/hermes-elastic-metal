@@ -123,29 +123,150 @@ class NetdataGrafanaConfigTest(unittest.TestCase):
             self.assertIn(setting, unit)
 
     def test_new_package_stock_prometheus_is_disabled_then_masked(self):
-        installer = (ROOT / "scripts/install-netdata-grafana.sh").read_text()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            marker = root / "var/lib/hermes-security-dashboard/managed-by-hermes"
-            marker.parent.mkdir(parents=True)
-            marker.write_text("hermes-security-dashboard-managed-v1" + chr(10))
-            log = root / "systemctl.log"
-            env = os.environ | {"NETDATA_GRAFANA_ROOT": directory, "SYSTEMCTL_LOG": str(log)}
-            script = (
-                'source "$1" --preflight; '
-                'systemctl() { printf "%s\\n" "$*" >> "$SYSTEMCTL_LOG"; }; '
-                'disable_new_stock_prometheus'
-            )
-            result = subprocess.run(["bash", "-c", script, "test", str(ROOT / "scripts/install-netdata-grafana.sh")],
-                                    env=env, text=True, capture_output=True)
+            result = self._run_package_fixture(root)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(log.read_text().splitlines(), ["disable --now prometheus.service", "mask prometheus.service"])
-        # The helper is reachable only in the fresh-package branch, after apt succeeds and policy cleanup runs.
-        branch = installer.split('if ! command -v prometheus', 1)[1].split('\\n  fi', 1)[0]
-        self.assertLess(branch.index('apt-get install'), branch.index('(( status == 0 ))'))
-        self.assertLess(branch.index('(( status == 0 ))'), branch.index('disable_new_stock_prometheus'))
-        self.assertIn('rm -f "${policy}"', branch)
-        self.assertEqual(installer.count("disable_new_stock_prometheus"), 2)
+            self.assertEqual((root / "systemctl.log").read_text().splitlines(),
+                             ["disable --now prometheus.service", "mask prometheus.service"])
+            self.assertEqual((root / "apt.log").read_text().strip(),
+                             "install -y --no-install-recommends prometheus")
+            self.assertFalse((root / "usr/sbin/policy-rc.d").exists())
+
+    def _run_package_fixture(self, root, apt_status=0, failed_action="", apt_create_binary=True):
+        (root / "var/lib/hermes-netdata-metrics").mkdir(parents=True, exist_ok=True)
+        (root / "usr/sbin").mkdir(parents=True, exist_ok=True)
+        env = os.environ | {
+            "NETDATA_GRAFANA_ROOT": str(root), "PROBE": str(root),
+            "APT_STATUS": str(apt_status), "FAILED_ACTION": failed_action,
+            "APT_CREATE_BINARY": str(apt_create_binary).lower(),
+        }
+        script = '''
+source "$1"
+command() {
+  if [[ "$1" == -v && "${2:-}" == prometheus ]]; then
+    [[ -f "$PROBE/prometheus-binary" ]]
+  else
+    builtin command "$@"
+  fi
+}
+apt-get() {
+  printf '%s\\n' "$*" >> "$PROBE/apt.log"
+  if [[ "$APT_CREATE_BINARY" == true ]]; then
+    printf 'installed\\n' > "$PROBE/prometheus-binary"
+    printf 'enabled\\n' > "$PROBE/stock-state"
+  fi
+  return "$APT_STATUS"
+}
+systemctl() {
+  printf '%s\\n' "$*" >> "$PROBE/systemctl.log"
+  [[ "$1" != "$FAILED_ACTION" ]] || return 1
+  if [[ "$1" == mask ]]; then printf 'masked\\n' > "$PROBE/stock-state"; fi
+}
+ensure_prometheus_package
+'''
+        return subprocess.run(
+            ["bash", "-c", script, "test", str(ROOT / "scripts/install-netdata-grafana.sh")],
+            env=env, text=True, capture_output=True,
+        )
+
+    def test_partial_package_failure_retains_ownership_and_masks_stock_service_on_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = self._run_package_fixture(root, apt_status=100)
+            self.assertNotEqual(first.returncode, 0)
+            self.assertIn("failed to install Prometheus package (exit 100)", first.stderr)
+            package_marker = root / "var/lib/hermes-netdata-metrics/prometheus-package-managed"
+            self.assertEqual(package_marker.read_text(), "netdata-prometheus-package-managed-v1\n")
+            self.assertEqual(package_marker.stat().st_mode & 0o777, 0o600)
+            self.assertFalse((root / "usr/sbin/policy-rc.d").exists())
+            self.assertEqual((root / "stock-state").read_text().strip(), "masked")
+            (root / "systemctl.log").unlink()
+            (root / "stock-state").write_text("enabled\n")
+            retry = self._run_package_fixture(root)
+            self.assertEqual(retry.returncode, 0, retry.stderr)
+            self.assertEqual((root / "systemctl.log").read_text().splitlines(),
+                             ["disable --now prometheus.service", "mask prometheus.service"])
+            self.assertEqual((root / "stock-state").read_text().strip(), "masked")
+            self.assertEqual(len((root / "apt.log").read_text().splitlines()), 1)
+
+    def test_failed_package_attempt_without_binary_discards_marker_before_foreign_install_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_marker = root / "var/lib/hermes-netdata-metrics/prometheus-package-managed"
+            failed = self._run_package_fixture(root, apt_status=100, apt_create_binary=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("failed to install Prometheus package (exit 100)", failed.stderr)
+            self.assertFalse((root / "prometheus-binary").exists())
+            self.assertFalse(package_marker.exists())
+
+            # An independent package transaction installs Prometheus afterward.
+            (root / "prometheus-binary").write_text("foreign install\n")
+            (root / "stock-state").write_text("operator-managed\n")
+            (root / "systemctl.log").unlink(missing_ok=True)
+            retry = self._run_package_fixture(root)
+            self.assertEqual(retry.returncode, 0, retry.stderr)
+            self.assertEqual((root / "stock-state").read_text(), "operator-managed\n")
+            self.assertFalse((root / "systemctl.log").exists())
+            self.assertFalse(package_marker.exists())
+
+    def test_invalid_package_ownership_marker_refuses_service_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "var/lib/hermes-netdata-metrics"
+            state.mkdir(parents=True)
+            (state / "prometheus-package-managed").write_text("invalid\n")
+            (root / "prometheus-binary").write_text("pre-existing\n")
+            result = self._run_package_fixture(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Prometheus package ownership marker is invalid", result.stderr)
+            self.assertFalse((root / "systemctl.log").exists())
+            self.assertFalse((root / "apt.log").exists())
+
+    def test_preexisting_prometheus_without_package_marker_is_untouched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "prometheus-binary").write_text("pre-existing\n")
+            (root / "stock-state").write_text("operator-managed\n")
+            result = self._run_package_fixture(root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((root / "stock-state").read_text(), "operator-managed\n")
+            self.assertFalse((root / "systemctl.log").exists())
+            self.assertFalse((root / "apt.log").exists())
+            self.assertFalse((root / "var/lib/hermes-netdata-metrics/prometheus-package-managed").exists())
+
+    def test_package_service_protection_failures_abort_and_remain_retryable(self):
+        for action in ("disable", "mask"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                failed = self._run_package_fixture(root, failed_action=action)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn(f"failed to {action} stock prometheus.service", failed.stderr)
+                self.assertFalse((root / "usr/sbin/policy-rc.d").exists())
+                expected = ["disable --now prometheus.service"]
+                if action == "mask":
+                    expected.append("mask prometheus.service")
+                self.assertEqual((root / "systemctl.log").read_text().splitlines(), expected)
+                (root / "systemctl.log").unlink()
+                retried = self._run_package_fixture(root)
+                self.assertEqual(retried.returncode, 0, retried.stderr)
+                self.assertEqual((root / "stock-state").read_text().strip(), "masked")
+                self.assertEqual((root / "systemctl.log").read_text().splitlines(),
+                                 ["disable --now prometheus.service", "mask prometheus.service"])
+
+    def test_package_install_preserves_foreign_policy_without_claiming_ownership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = root / "usr/sbin/policy-rc.d"
+            policy.parent.mkdir(parents=True)
+            original = b"operator-owned policy\n"
+            policy.write_bytes(original)
+            result = self._run_package_fixture(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exists; inspect before installing packages", result.stderr)
+            self.assertEqual(policy.read_bytes(), original)
+            self.assertFalse((root / "var/lib/hermes-netdata-metrics/prometheus-package-managed").exists())
+            self.assertFalse((root / "apt.log").exists())
 
     def test_installer_is_opt_in_and_never_restarts_existing_security_services(self):
         installer = (ROOT / "scripts/install-netdata-grafana.sh").read_text()
