@@ -18,6 +18,11 @@ output "netdata_fqdn" {
   value       = scaleway_domain_record.netdata.fqdn
 }
 
+output "portfolio_fqdn" {
+  description = "Portfolio hostname, or empty while DNS is disabled. Cloudflare custom-domain activation and HTTPS are configured separately."
+  value       = module.portfolio_dns.portfolio_fqdn
+}
+
 output "admin_cidrs" {
   description = "Comma-separated admin CIDRs, passed to bootstrap.sh as ADMIN_CIDRS."
   value       = join(",", var.admin_cidrs)
