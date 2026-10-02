@@ -89,9 +89,9 @@ variable "netdata_subdomain" {
 }
 
 variable "portfolio_pages_hostname" {
-  description = "Assigned production Cloudflare Pages hostname for portfolio.<root_domain>; empty leaves DNS disabled. Validated by the portfolio DNS module."
+  description = "Production Cloudflare Pages hostname for portfolio.<root_domain>, managed through reviewed code. Validated by the portfolio DNS module."
   type        = string
-  default     = ""
+  default     = "orbit-portfolio.pages.dev"
   nullable    = false
 }
 
