@@ -88,6 +88,13 @@ variable "netdata_subdomain" {
   default     = "netdata"
 }
 
+variable "portfolio_pages_hostname" {
+  description = "Assigned production Cloudflare Pages hostname for portfolio.<root_domain>; empty leaves DNS disabled. Validated by the portfolio DNS module."
+  type        = string
+  default     = ""
+  nullable    = false
+}
+
 variable "tags" {
   description = "Tags applied to every resource."
   type        = list(string)
