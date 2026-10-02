@@ -1,0 +1,51 @@
+name: Security dashboard CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "config/security-dashboard/**"
+      - "systemd/hermes-security-*.service"
+      - "scripts/install-security-dashboard.sh"
+      - "scripts/ship.sh"
+      - "tests/test_security_dashboard*.py"
+      - "tests/security_dashboard_smoke.py"
+      - "docs/runbooks/security-dashboard.md"
+      - "README.md"
+      - ".github/workflows/security-dashboard.yml"
+  push:
+    branches: [main]
+    paths:
+      - "config/security-dashboard/**"
+      - "systemd/hermes-security-*.service"
+      - "scripts/install-security-dashboard.sh"
+      - "scripts/ship.sh"
+      - "tests/test_security_dashboard*.py"
+      - "tests/security_dashboard_smoke.py"
+      - "docs/runbooks/security-dashboard.md"
+      - "README.md"
+      - ".github/workflows/security-dashboard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  security-dashboard:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install native Grafana packages
+        run: |
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://apt.grafana.com/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+          echo 'deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main' | sudo tee /etc/apt/sources.list.d/grafana.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y alloy grafana shellcheck systemd-journal-remote
+      - name: Run dashboard unit and installer guard tests
+        run: python3 -m unittest discover -s tests -p 'test_security_dashboard*.py' -v
+      - name: Check installer and ship shell
+        run: shellcheck scripts/install-security-dashboard.sh scripts/ship.sh
+      - name: Exercise real Loki, Alloy, Grafana and provisioned dashboard
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python3 tests/security_dashboard_smoke.py

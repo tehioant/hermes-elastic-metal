@@ -33,8 +33,10 @@ context.
 - `scripts/` — `bootstrap.sh` (idempotent host setup), `install-netdata.sh`
   (optional, independent monitoring), `install-tailscale.sh` (private SSH over
   the tailnet), `backup.sh`, `restore-drill.sh`,
-  `healthcheck.sh`, `ship.sh`
+  `healthcheck.sh`, `ship.sh`; `install-security-dashboard.sh` is an opt-in,
+  isolated Loki/Alloy/Grafana stack ([security dashboard runbook](docs/runbooks/security-dashboard.md))
 - `config/` — host configuration including the localhost-only Netdata dashboard
+  and security collection/provisioning files
   ([maintenance runbook](docs/runbooks/maintenance.md#host-metrics-netdata))
 - `systemd/` — units and timers installed on the host
 - `docs/` — runbooks and agent context

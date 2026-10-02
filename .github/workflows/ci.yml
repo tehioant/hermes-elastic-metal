@@ -7,6 +7,8 @@ on:
       - "terraform/**"
       - "scripts/firewall.sh"
       - "tests/**"
+      - "!tests/test_security_dashboard*.py"
+      - "!tests/security_dashboard_smoke.py"
       - ".mise.toml"
       - ".github/workflows/ci.yml"
 

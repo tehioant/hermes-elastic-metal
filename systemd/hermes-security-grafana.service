@@ -1,0 +1,23 @@
+[Unit]
+Description=Hermes private security dashboard (Grafana)
+After=hermes-security-loki.service
+Requires=hermes-security-loki.service
+
+[Service]
+Type=simple
+User=grafana
+Group=grafana
+EnvironmentFile=/etc/hermes-security-dashboard/grafana.env
+ExecStart=/usr/sbin/grafana-server --config=/etc/hermes-security-dashboard/grafana.ini --homepath=/usr/share/grafana --packaging=deb
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hermes-security-dashboard/grafana /var/log/hermes-security-dashboard/grafana
+MemoryMax=1024M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target
