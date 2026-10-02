@@ -1,5 +1,3 @@
-# Static portfolio DNS, independent of the Elastic Metal server.
-# The parent module keeps the existing Scaleway DNS zone authoritative.
 terraform {
   required_providers {
     scaleway = {
@@ -29,13 +27,18 @@ variable "portfolio_pages_hostname" {
   }
 }
 
+locals {
+  dns_enabled           = var.portfolio_pages_hostname != ""
+  absolute_pages_target = "${trimsuffix(var.portfolio_pages_hostname, ".")}."
+}
+
 resource "scaleway_domain_record" "portfolio" {
-  count = var.portfolio_pages_hostname == "" ? 0 : 1
+  count = local.dns_enabled ? 1 : 0
 
   dns_zone = var.root_domain
   name     = "portfolio"
   type     = "CNAME"
-  data     = endswith(var.portfolio_pages_hostname, ".") ? var.portfolio_pages_hostname : "${var.portfolio_pages_hostname}."
+  data     = local.absolute_pages_target
   ttl      = 300
 
   lifecycle {
@@ -45,5 +48,5 @@ resource "scaleway_domain_record" "portfolio" {
 
 output "portfolio_fqdn" {
   description = "Configured portfolio hostname, or empty while DNS is disabled. Cloudflare domain activation and HTTPS are configured separately."
-  value       = var.portfolio_pages_hostname == "" ? "" : "portfolio.${var.root_domain}"
+  value       = local.dns_enabled ? "portfolio.${var.root_domain}" : ""
 }
