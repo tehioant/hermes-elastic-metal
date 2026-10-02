@@ -11,8 +11,9 @@ check "backup_region_differs_from_server" {
 }
 
 data "scaleway_baremetal_offer" "this" {
-  zone = var.zone
-  name = var.offer_name
+  zone                = var.zone
+  name                = var.offer_name
+  subscription_period = "monthly"
 }
 
 data "scaleway_baremetal_os" "ubuntu" {
