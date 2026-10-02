@@ -1,0 +1,18 @@
+{
+  "uid": "netdata-host",
+  "title": "Netdata Host",
+  "tags": ["netdata", "host"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "CPU utilization", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"refId": "A", "expr": "100 - netdata_system_cpu_percentage_average{dimension=\"idle\"}", "legendFormat": "CPU %", "instant": false}], "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "options": {"legend": {"showLegend": true}, "tooltip": {"mode": "single"}}},
+    {"id": 2, "type": "timeseries", "title": "Memory used", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"refId": "A", "expr": "100 * sum(netdata_system_ram_MiB_average{dimension=\"used\"}) / sum(netdata_system_ram_MiB_average{dimension=~\"free|used|cached|buffers\"})", "legendFormat": "RAM used %"}], "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "options": {"legend": {"showLegend": true}}},
+    {"id": 3, "type": "timeseries", "title": "Root filesystem used", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"refId": "A", "expr": "100 * sum(netdata_disk_space_GiB_average{chart=\"disk_space./\",dimension=\"used\"}) / sum(netdata_disk_space_GiB_average{chart=\"disk_space./\",dimension=~\"used|avail\"})", "legendFormat": "Root used %"}], "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "options": {"legend": {"showLegend": true}}},
+    {"id": 4, "type": "timeseries", "title": "System load", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"refId": "A", "expr": "netdata_system_load_load_average", "legendFormat": "{{dimension}}"}], "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "options": {"legend": {"showLegend": true}}},
+    {"id": 5, "type": "timeseries", "title": "Network received", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}, "targets": [{"refId": "A", "expr": "abs(netdata_net_net_kilobits_persec_average{dimension=\"received\"}) * 1000", "legendFormat": "{{device}}"}], "fieldConfig": {"defaults": {"unit": "bps"}, "overrides": []}, "options": {"legend": {"showLegend": true}}},
+    {"id": 6, "type": "timeseries", "title": "Network sent", "datasource": {"type": "prometheus", "uid": "local-netdata-prometheus"}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}, "targets": [{"refId": "A", "expr": "abs(netdata_net_net_kilobits_persec_average{dimension=\"sent\"}) * 1000", "legendFormat": "{{device}}"}], "fieldConfig": {"defaults": {"unit": "bps"}, "overrides": []}, "options": {"legend": {"showLegend": true}}}
+  ]
+}

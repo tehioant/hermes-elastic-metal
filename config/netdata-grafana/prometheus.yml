@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+scrape_configs:
+  - job_name: netdata
+    metrics_path: /api/v1/allmetrics
+    params:
+      format: [prometheus]
+      source: [average]
+      timestamps: ["no"]
+      names: ["no"]
+      filter: ["system.cpu system.ram system.load disk_space./ net.eno1 net.tailscale0"]
+      server: [hermes-netdata-grafana]
+    static_configs:
+      - targets: [127.0.0.1:19999]
+    sample_limit: 1000
+    body_size_limit: 10MB
