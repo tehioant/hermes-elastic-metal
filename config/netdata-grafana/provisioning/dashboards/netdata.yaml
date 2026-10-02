@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: Netdata Host
+    orgId: 1
+    folder: Netdata
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /etc/hermes-security-dashboard/netdata-dashboards

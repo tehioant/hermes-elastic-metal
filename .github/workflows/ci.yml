@@ -9,6 +9,8 @@ on:
       - "tests/**"
       - "!tests/test_security_dashboard*.py"
       - "!tests/security_dashboard_smoke.py"
+      - "!tests/test_netdata_grafana.py"
+      - "!tests/netdata_grafana_smoke.py"
       - ".mise.toml"
       - ".github/workflows/ci.yml"
 

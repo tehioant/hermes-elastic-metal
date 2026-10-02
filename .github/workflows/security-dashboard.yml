@@ -12,6 +12,12 @@ on:
       - "tests/security_dashboard_smoke.py"
       - "docs/runbooks/security-dashboard.md"
       - "README.md"
+      - "config/netdata-grafana/**"
+      - "systemd/hermes-netdata-prometheus.service"
+      - "scripts/install-netdata-grafana.sh"
+      - "tests/test_netdata_grafana.py"
+      - "tests/netdata_grafana_smoke.py"
+      - "docs/runbooks/netdata-grafana.md"
       - ".github/workflows/security-dashboard.yml"
   push:
     branches: [main]
@@ -24,6 +30,12 @@ on:
       - "tests/security_dashboard_smoke.py"
       - "docs/runbooks/security-dashboard.md"
       - "README.md"
+      - "config/netdata-grafana/**"
+      - "systemd/hermes-netdata-prometheus.service"
+      - "scripts/install-netdata-grafana.sh"
+      - "tests/test_netdata_grafana.py"
+      - "tests/netdata_grafana_smoke.py"
+      - "docs/runbooks/netdata-grafana.md"
       - ".github/workflows/security-dashboard.yml"
 
 permissions:
@@ -40,11 +52,15 @@ jobs:
           curl -fsSL https://apt.grafana.com/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
           echo 'deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main' | sudo tee /etc/apt/sources.list.d/grafana.list >/dev/null
           sudo apt-get update
-          sudo apt-get install -y alloy grafana shellcheck systemd-journal-remote
+          sudo apt-get install -y --no-install-recommends alloy grafana prometheus shellcheck systemd-journal-remote
       - name: Run dashboard unit and installer guard tests
         run: python3 -m unittest discover -s tests -p 'test_security_dashboard*.py' -v
+      - name: Run Netdata bridge configuration/installer tests
+        run: python3 -m unittest tests.test_netdata_grafana -v
+      - name: Validate local Prometheus scrape config
+        run: promtool check config config/netdata-grafana/prometheus.yml
       - name: Check installer and ship shell
-        run: shellcheck scripts/install-security-dashboard.sh scripts/ship.sh
+        run: shellcheck scripts/install-security-dashboard.sh scripts/install-netdata-grafana.sh scripts/ship.sh
       - name: Exercise real Loki, Alloy, Grafana and provisioned dashboard
         env:
           TMPDIR: ${{ runner.temp }}
