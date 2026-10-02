@@ -1,0 +1,24 @@
+[Unit]
+Description=Hermes selective security log collector (Alloy)
+After=hermes-security-loki.service
+Requires=hermes-security-loki.service
+
+[Service]
+Type=simple
+User=alloy
+Group=alloy
+SupplementaryGroups=adm systemd-journal
+ExecStart=/usr/bin/alloy run --disable-reporting --storage.path=/var/lib/hermes-security-dashboard/alloy --server.http.listen-addr=127.0.0.1:12346 /etc/hermes-security-dashboard/config.alloy
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/log/fail2ban.log
+ReadWritePaths=/var/lib/hermes-security-dashboard/alloy
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

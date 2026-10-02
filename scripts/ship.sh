@@ -53,6 +53,15 @@ EOF
 
   install_netdata
   publish_dashboard
+  install_security_dashboard
+}
+
+install_security_dashboard() {
+  [[ "${INSTALL_SECURITY_DASHBOARD:-0}" == 1 ]] || return 0
+  local operator_target="${TARGET/#root@/ops@}"
+  printf '🔐 installing private security dashboard on %s (opt-in)\n' "${operator_target}"
+  ssh "${operator_target}" "sudo bash ${REMOTE_DIR}/scripts/install-security-dashboard.sh </dev/null" \
+    || printf '⚠️  Security dashboard install failed; other host setup is complete. Re-run: ssh %s sudo bash %s/scripts/install-security-dashboard.sh\n' "${operator_target}" "${REMOTE_DIR}" >&2
 }
 
 install_netdata() {

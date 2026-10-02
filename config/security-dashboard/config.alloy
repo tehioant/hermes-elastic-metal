@@ -1,0 +1,104 @@
+// This collector is intentionally selective: no whole-system journal or app logs.
+// Labels are only the fixed job name and host; IPs and paths remain log fields.
+loki.write "local" {
+  endpoint {
+    url = "http://127.0.0.1:3100/loki/api/v1/push"
+  }
+}
+
+loki.source.journal "ufw" {
+  matches    = "_TRANSPORT=kernel SYSLOG_IDENTIFIER=kernel"
+  labels     = { job = "ufw", host = constants.hostname }
+  forward_to = [loki.process.ufw.receiver]
+}
+
+loki.process "ufw" {
+  stage.label_drop {
+    values = ["filename", "service_name", "detected_level"]
+  }
+  stage.match {
+    selector = "{job=\"ufw\"} !~ \".*UFW (BLOCK|REJECT).*\""
+    action   = "drop"
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.source.journal "ssh" {
+  matches    = "_COMM=sshd"
+  labels     = { job = "ssh", host = constants.hostname }
+  forward_to = [loki.process.ssh.receiver]
+}
+
+// Current OpenSSH uses a separate session process; readers do not overlap.
+loki.source.journal "ssh_session" {
+  matches    = "_COMM=sshd-session"
+  labels     = { job = "ssh", host = constants.hostname }
+  forward_to = [loki.process.ssh.receiver]
+}
+
+loki.process "ssh" {
+  stage.label_drop {
+    values = ["filename", "service_name", "detected_level"]
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.source.file "fail2ban" {
+  targets = [{ __path__ = "/var/log/fail2ban.log", job = "fail2ban", host = constants.hostname }]
+  forward_to = [loki.process.fail2ban.receiver]
+}
+
+loki.process "fail2ban" {
+  stage.label_drop {
+    values = ["filename", "service_name", "detected_level"]
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+// Re-emit an allowlist of Caddy metadata; never store raw JSON request headers.
+loki.source.journal "caddy" {
+  matches    = "_SYSTEMD_UNIT=caddy.service"
+  labels     = { job = "caddy", host = constants.hostname }
+  forward_to = [loki.process.caddy.receiver]
+}
+
+loki.process "caddy" {
+  stage.label_drop {
+    values = ["filename", "service_name", "detected_level"]
+  }
+  stage.json {
+    drop_malformed = true
+    expressions = {
+      logger    = "logger",
+      status    = "status",
+      remote_ip = "request.remote_ip",
+      method    = "request.method",
+      host      = "request.host",
+      uri       = "request.uri",
+      user_id   = "user_id",
+    }
+  }
+  // Transient label for selection only; remove it before writing to Loki.
+  stage.labels {
+    values = { access_logger = "logger" }
+  }
+  stage.match {
+    selector = "{job=\"caddy\",access_logger!~\"http[.]log[.]access([.].+)?\"}"
+    action   = "drop"
+  }
+  stage.label_drop {
+    values = ["access_logger"]
+  }
+  stage.regex {
+    source     = "uri"
+    expression = "^(?P<path>[^?]*)"
+  }
+  stage.template {
+    source   = "safe_message"
+    template = "status={{.status}} remote_ip={{.remote_ip}} method={{.method}} host={{.host}} path={{.path}} user_id={{.user_id}}"
+  }
+  stage.output {
+    source = "safe_message"
+  }
+  forward_to = [loki.write.local.receiver]
+}

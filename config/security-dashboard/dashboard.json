@@ -1,0 +1,24 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "UFW blocked packets (rate-limited host log records)", "datasource": {"type": "loki", "uid": "local-loki"}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"refId": "A", "expr": "sum(count_over_time({job=\"ufw\"} |~ \"UFW (BLOCK|REJECT)\" [$__interval]))", "legendFormat": "records", "queryType": "range"}], "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "options": {"legend": {"showLegend": true}, "tooltip": {"mode": "single"}}},
+    {"id": 2, "type": "logs", "title": "SSH authentication events", "datasource": {"type": "loki", "uid": "local-loki"}, "gridPos": {"h": 10, "w": 12, "x": 12, "y": 0}, "targets": [{"refId": "A", "expr": "{job=\"ssh\"} |~ \"(Failed|Accepted) (password|publickey|keyboard-interactive)\"", "queryType": "range"}], "options": {"showTime": true, "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true}},
+    {"id": 3, "type": "logs", "title": "Fail2Ban actions (actual fail2ban.log)", "datasource": {"type": "loki", "uid": "local-loki"}, "gridPos": {"h": 10, "w": 12, "x": 0, "y": 8}, "targets": [{"refId": "A", "expr": "{job=\"fail2ban\"}", "queryType": "range"}], "options": {"showTime": true, "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true}},
+    {"id": 4, "type": "logs", "title": "Caddy access metadata (query strings and headers excluded)", "datasource": {"type": "loki", "uid": "local-loki"}, "gridPos": {"h": 10, "w": 12, "x": 12, "y": 10}, "targets": [{"refId": "A", "expr": "{job=\"caddy\"}", "queryType": "range"}], "options": {"showTime": true, "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true}},
+    {"id": 5, "type": "logs", "title": "Investigation: all UFW block records", "datasource": {"type": "loki", "uid": "local-loki"}, "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18}, "targets": [{"refId": "A", "expr": "{job=\"ufw\"} |~ \"UFW (BLOCK|REJECT)\"", "queryType": "range"}], "options": {"showTime": true, "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true}}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["security", "local"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Host Security",
+  "uid": "host-security",
+  "version": 1
+}
