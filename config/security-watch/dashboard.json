@@ -1,0 +1,599 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Host Security (UFW / SSH / Fail2Ban verdict context)",
+      "type": "link",
+      "url": "/d/host-security/host-security",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Scope, privacy & attribution",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Server Watch \u2014 observed inbound packet flows, not an attack detector.** Capture is on the physical public interface before firewall verdicts; `decision=unknown` means allowed/blocked is not inferred. UDP's first observed packet may be a reply. Retransmits/repeated 5-tuples collapse for 30 seconds, so counts are emitted observations, not packet totals or unique initiators.\n\nOnly this dedicated collector stream is read; payloads are not collected. IPs remain event fields (never Loki labels). Geographic points are approximate IP geolocation, not exact people; unmapped/private/unknown locations remain in totals and feed, omitted from map. Local DB-IP Lite city/ASN data: [DB-IP Lite](https://db-ip.com/db/download/ip-to-city-lite) \u2014 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Lookup is local; source IPs are not sent to online lookup services. For firewall/auth verdicts see [Host Security (UFW / SSH / Fail2Ban)](/d/host-security/host-security)."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Observed flows (not attacks)",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Distinct observed source IPs",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (src_ip) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format src_ip=\"{{.src_ip}}\" [$__range])))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Observed flows by protocol",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (protocol) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format protocol=\"{{.protocol}}\" [$__interval]))",
+          "legendFormat": "{{protocol}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Observed flows by attempt type",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (attempt_type) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format attempt_type=\"{{.attempt_type}}\" [$__interval]))",
+          "legendFormat": "{{attempt_type}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "geomap",
+      "title": "Approximate source geolocation (emitted flows)",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (latitude, longitude) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | latitude!=\"\" | longitude!=\"\" | label_format latitude=\"{{.latitude}}\", longitude=\"{{.longitude}}\" [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "zero",
+          "lat": 0,
+          "lon": 0,
+          "zoom": 1
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true
+        },
+        "basemap": {
+          "type": "default",
+          "name": "OSM Standard",
+          "config": {}
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Approximate source locations",
+            "config": {
+              "showLegend": true,
+              "style": {
+                "size": {
+                  "fixed": 5,
+                  "field": "Value"
+                },
+                "color": {
+                  "fixed": "blue",
+                  "field": "Value"
+                },
+                "symbol": {
+                  "fixed": "circle",
+                  "field": "Value"
+                },
+                "opacity": 0.8
+              }
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            }
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "Value"
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "latitude",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "longitude",
+                "destinationType": "number"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Top observed source IPs (approximate attribution)",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (src_ip, country, city, asn, as_org) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format src_ip=\"{{.src_ip}}\", country=\"{{.country}}\", city=\"{{.city}}\", asn=\"{{.asn}}\", as_org=\"{{.as_org}}\" [$__range])))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "Value"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Top observed destination ports / protocol",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (dst_port, protocol) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format dst_port=\"{{.dst_port}}\", protocol=\"{{.protocol}}\" [$__range])))",
+          "legendFormat": "{{protocol}} / {{dst_port}}",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "xField": "Value"
+      }
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Observed flows by country",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(20, sum by (country) (count_over_time({job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\" | label_format country=\"{{.country}}\" [$__range])))",
+          "legendFormat": "{{country}}",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "xField": "Value"
+      }
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Recent detailed inbound events (includes unknown locations)",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"security-watch\"} | json | kind=\"attempt\" | src_ip=~`${source_ip:raw}` | protocol=~\"${protocol:regex}\"",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Collector health counters (latest reported cumulative values)",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time({job=\"security-watch\"} | json kind=\"kind\", packets_received=\"packets_received\" | kind=\"health\" | unwrap packets_received [$__range])",
+          "legendFormat": "packets received",
+          "queryType": "range"
+        },
+        {
+          "refId": "B",
+          "expr": "last_over_time({job=\"security-watch\"} | json kind=\"kind\", packets_dropped=\"packets_dropped\" | kind=\"health\" | unwrap packets_dropped [$__range])",
+          "legendFormat": "kernel drops",
+          "queryType": "range"
+        },
+        {
+          "refId": "C",
+          "expr": "last_over_time({job=\"security-watch\"} | json kind=\"kind\", events_limited=\"events_limited\" | kind=\"health\" | unwrap events_limited [$__range])",
+          "legendFormat": "output limited",
+          "queryType": "range"
+        },
+        {
+          "refId": "D",
+          "expr": "last_over_time({job=\"security-watch\"} | json kind=\"kind\", packets_deduplicated=\"packets_deduplicated\" | kind=\"health\" | unwrap packets_deduplicated [$__range])",
+          "legendFormat": "deduplicated",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Collector heartbeat \u2014 stale/idle is not green",
+      "datasource": {
+        "type": "loki",
+        "uid": "local-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"security-watch\"} | json kind=\"kind\" | kind=\"health\" [2m]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": [
+    "security",
+    "local",
+    "server-watch"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "source_ip",
+        "label": "Source IP filter (regex)",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 0
+      },
+      {
+        "name": "protocol",
+        "label": "Protocol",
+        "type": "custom",
+        "query": "TCP,UDP,ICMP",
+        "current": {
+          "text": "TCP,UDP,ICMP",
+          "value": [
+            "TCP",
+            "UDP",
+            "ICMP"
+          ]
+        },
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Server Watch \u2014 observed inbound flows",
+  "uid": "server-watch",
+  "version": 1
+}

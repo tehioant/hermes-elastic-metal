@@ -65,6 +65,49 @@ def loki_binary(work):
     return target
 
 
+def journal_sources(config):
+    """Discover every reader so smoke tests never consume the host journal."""
+    return re.findall(r'^loki\.source\.journal "([^"]+)" \{', config, re.MULTILINE)
+
+
+def watch_fixture_messages(path):
+    """Wrap isolated capture output with explicit negative/privacy test fixtures."""
+    records = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    kinds = {record.get("kind") for record in records if isinstance(record, dict)}
+    if not {"attempt", "health"} <= kinds or not all(isinstance(record, dict) for record in records):
+        raise ValueError("capture output must contain real attempt and health records")
+    messages = [json.dumps(record | {
+        "payload": "WATCH_PAYLOAD_SECRET",
+        "headers": {"Authorization": "WATCH_HEADER_SECRET"},
+        "query": "WATCH_QUERY_SECRET",
+    }) for record in records]
+    messages.extend([
+        json.dumps({"schema": 1, "kind": "debug", "payload": "WATCH_DEBUG_SECRET"}),
+        "not-json WATCH_MALFORMED_SECRET",
+    ])
+    return "\n".join(messages) + "\n"
+
+
+def assert_watch_labels(labels):
+    # Loki adds these fixed defaults after Alloy's label_keep stage. Never
+    # permit arbitrary extra labels or source addresses masquerading as defaults.
+    assert labels.get("job") == "security-watch" and labels.get("host") == "test-only", labels
+    assert set(labels) <= {"job", "host", "service_name", "detected_level"}, labels
+    assert labels.get("service_name", "security-watch") == "security-watch", labels
+    assert labels.get("detected_level", "unknown") == "unknown", labels
+
+
+def assert_stat_value(result, expected, title):
+    latest = []
+    for frame in result.get("frames", []):
+        for field, values in zip(frame.get("schema", {}).get("fields", []), frame.get("data", {}).get("values", [])):
+            if field.get("type") == "number":
+                present = [value for value in values if value is not None]
+                if present:
+                    latest.append(present[-1])
+    assert latest == [expected], (title, "expected", expected, "actual", latest)
+
+
 def replace_source(config, source, replacement):
     pattern = rf'loki\.source\.journal "{source}" \{{.*?^\}}'
     result, count = re.subn(pattern, replacement, config, count=1, flags=re.MULTILINE | re.DOTALL)
@@ -121,6 +164,13 @@ def main():
             ({"_SYSTEMD_UNIT": "unrelated.service"}, "UNRELATED_SECRET\n"),
             ({"_TRANSPORT": "kernel", "SYSLOG_IDENTIFIER": "kernel"}, "non-firewall KERNEL_SECRET\n"),
         ]
+        watch_events = os.environ.get("SECURITY_WATCH_EVENTS")
+        captured = []
+        if watch_events:
+            sources.extend([
+                ({"_SYSTEMD_UNIT": "hermes-security-watch.service"}, watch_fixture_messages(watch_events)),
+                ({"_SYSTEMD_UNIT": "unrelated.service"}, json.dumps({"schema": 1, "kind": "attempt", "payload": "WATCH_FOREIGN_SECRET"})),
+            ])
         for fields, messages in sources:
             for message in messages.splitlines():
                 values = fields | {
@@ -134,7 +184,7 @@ def main():
         export.write_text("\n\n".join(entries) + "\n\n")
         subprocess.run([journal_remote, "--split-mode=none", f"--output={journal_dir / 'fixtures.journal'}", str(export)],
                        check=True, cwd=work)
-        for name in ("ufw", "ssh", "ssh_session", "caddy"):
+        for name in journal_sources(alloy_cfg):
             pattern = rf'loki\.source\.journal "{name}" \{{.*?^\}}'
             original = re.search(pattern, alloy_cfg, flags=re.MULTILINE | re.DOTALL)
             assert original, name
@@ -158,6 +208,14 @@ def main():
         (provisioning / "dashboards/security.yaml").write_text(provider.replace(
             "/etc/hermes-security-dashboard/dashboards", str(work / "dashboards")))
         (work / "dashboards/security.json").write_text((ROOT / "config/security-dashboard/dashboard.json").read_text())
+        if watch_events:
+            watch_dir = work / "watch-dashboards"
+            watch_dir.mkdir()
+            watch_provider = (ROOT / "config/security-watch/provisioning.yaml").read_text()
+            watch_provider, replacements = re.subn(r"(?m)^(\s+path:)\s*/[^\n]+", lambda match: match[1] + " " + str(watch_dir), watch_provider)
+            assert replacements == 1, "watch provider path was not adapted"
+            (provisioning / "dashboards/watch.yaml").write_text(watch_provider)
+            (watch_dir / "server-watch.json").write_text((ROOT / "config/security-watch/dashboard.json").read_text())
         grafana_cfg = (ROOT / "config/security-dashboard/grafana.ini").read_text()
         grafana_cfg = grafana_cfg.replace("http_port = 3001", f"http_port = {grafana_port}")
         grafana_cfg = grafana_cfg.replace("/var/lib/hermes-security-dashboard/grafana", str(work / "grafana-data"))
@@ -172,6 +230,9 @@ def main():
                             "GF_PATHS_DATA": str(work / "grafana-data"),
                             "GF_PATHS_LOGS": str(work / "grafana-logs"),
                             "GF_PATHS_PROVISIONING": str(provisioning)}
+        if os.environ.get("SECURITY_WATCH_UI_SERVE"):
+            # Test-only anonymous Viewer on a temporary loopback instance.
+            env.update(GF_AUTH_ANONYMOUS_ENABLED="true", GF_AUTH_ANONYMOUS_ORG_ROLE="Viewer")
         for path in (work / "grafana-data", work / "grafana-logs", work / "loki-data"):
             path.mkdir()
 
@@ -198,6 +259,8 @@ def main():
 
             expected = {"ufw": "UFW BLOCK", "ssh": "Failed password", "fail2ban": "Ban 203.0.113.9",
                         "caddy": "status=401 remote_ip=192.0.2.8 method=GET host=example.test path=/admin user_id=test-user"}
+            if watch_events:
+                expected["security-watch"] = '"kind":"attempt"'
             deadline = time.monotonic() + 60
             results = {}
             while time.monotonic() < deadline:
@@ -240,6 +303,19 @@ def main():
             all_lines = "\n".join(value for stream in all_streams for _, value in stream["values"])
             assert "UNRELATED_SECRET" not in all_lines and "KERNEL_SECRET" not in all_lines, all_lines
             assert {stream["stream"]["job"] for stream in all_streams} == set(expected)
+            if watch_events:
+                for marker in ("WATCH_PAYLOAD_SECRET", "WATCH_HEADER_SECRET", "WATCH_QUERY_SECRET", "WATCH_DEBUG_SECRET", "WATCH_MALFORMED_SECRET", "WATCH_FOREIGN_SECRET"):
+                    assert marker not in json.dumps(all_streams), f"watch privacy marker escaped: {marker}"
+                incoming = [json.loads(value) for stream in results["security-watch"] for _, value in stream["values"]]
+                captured = [json.loads(line) for line in Path(watch_events).read_text().splitlines() if line.strip()]
+                assert len(incoming) == len(captured), (len(incoming), len(captured))
+                assert {record["kind"] for record in incoming} == {"attempt", "health"}
+                for stream in results["security-watch"]:
+                    assert_watch_labels(stream["stream"])
+                for original in captured:
+                    matching = [record for record in incoming if record.get("ts") == original["ts"]]
+                    assert len(matching) == 1, original
+                    assert matching[0] == original, (matching[0], original)
             _, dashboard_body = request(grafana_url + "/api/dashboards/uid/host-security", auth=f"admin:{admin_password}")
             dashboard = json.loads(dashboard_body)["dashboard"]
             assert dashboard["uid"] == "host-security"
@@ -258,9 +334,40 @@ def main():
                     result = json.loads(response)["results"][target["refId"]]
                     assert not result.get("error"), (panel["title"], result)
                     assert result.get("frames"), (panel["title"], result)
+            if watch_events:
+                _, body = request(grafana_url + "/api/dashboards/uid/server-watch", auth=f"admin:{admin_password}")
+                watch_dashboard = json.loads(body)["dashboard"]
+                tested = 0
+                for panel in watch_dashboard["panels"]:
+                    for target in panel.get("targets", []):
+                        # Grafana's frontend :regex formatter escapes a textbox's
+                        # literal .*; keep this faithful so the default-filter bug
+                        # cannot be hidden by the test harness.
+                        expr = target["expr"].replace("$__interval", "1m").replace("$__range", "5m")
+                        expr = expr.replace("${source_ip:regex}", r"\\.\\*").replace("${source_ip:json}", ".*").replace("${source_ip:doublequote}", json.dumps(".*")).replace("${source_ip:raw}", ".*")
+                        expr = expr.replace("${protocol:regex}", "(TCP|UDP|ICMP)")
+                        query = target | {"datasource": panel["datasource"], "expr": expr,
+                                          "intervalMs": 60000, "maxDataPoints": 100}
+                        payload = json.dumps({"queries": [query], "from": "now-5m", "to": "now"}).encode()
+                        _, body = request(grafana_url + "/api/ds/query", data=payload,
+                                          headers={"Content-Type": "application/json"}, auth=f"admin:{admin_password}")
+                        result = json.loads(body)["results"][target["refId"]]
+                        assert not result.get("error"), (panel["title"], result)
+                        assert any(frame.get("data", {}).get("values") and any(frame["data"]["values"]) for frame in result.get("frames", [])), (panel["title"], result)
+                        if panel["title"] == "Observed flows (not attacks)":
+                            assert_stat_value(result, sum(record["kind"] == "attempt" for record in captured), panel["title"])
+                        if panel["title"] == "Distinct observed source IPs":
+                            assert_stat_value(result, len({record["src_ip"] for record in captured if record["kind"] == "attempt"}), panel["title"])
+                        tested += 1
+                print(f"Server Watch smoke PASS: {tested} real Grafana datasource targets, capture metadata preserved, canonical allowlist and fixed stream labels")
             _, health_body = request(grafana_url + "/api/datasources/uid/local-loki/health", auth=f"admin:{admin_password}")
             assert json.loads(health_body)["status"] == "OK", health_body
             print("Security dashboard smoke PASS: real Loki, Alloy ingestion/privacy, Grafana datasource/dashboard provisioning")
+            if os.environ.get("SECURITY_WATCH_UI_SERVE"):
+                import signal
+                print(f"Server Watch UI ready: {grafana_url}/d/server-watch", flush=True)
+                signal.pause()  # Keep isolated test servers up for browser QA; Ctrl-C cleans up.
+
         finally:
             for process in reversed(processes):
                 process.terminate()

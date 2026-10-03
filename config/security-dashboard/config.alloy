@@ -102,3 +102,82 @@ loki.process "caddy" {
   }
   forward_to = [loki.write.local.receiver]
 }
+
+// Server Watch journal reader: only the dedicated collector unit is consumed.
+loki.source.journal "security_watch" {
+  matches    = "_SYSTEMD_UNIT=hermes-security-watch.service"
+  labels     = { job = "security-watch", host = constants.hostname }
+  forward_to = [loki.process.security_watch.receiver]
+}
+
+loki.process "security_watch" {
+  stage.label_drop {
+    values = ["filename", "service_name", "detected_level"]
+  }
+  stage.json {
+    drop_malformed = true
+    expressions = {
+      schema                = "schema",
+      kind                  = "kind",
+      ts                    = "ts",
+      interface             = "interface",
+      src_ip                = "src_ip",
+      dst_ip                = "dst_ip",
+      src_port              = "src_port",
+      dst_port              = "dst_port",
+      protocol              = "protocol",
+      attempt_type          = "attempt_type",
+      ip_version            = "ip_version",
+      ttl                   = "ttl",
+      decision              = "decision",
+      geo_status            = "geo_status",
+      country               = "country",
+      country_code          = "country_code",
+      city                  = "city",
+      latitude              = "latitude",
+      longitude             = "longitude",
+      asn                   = "asn",
+      as_org                = "as_org",
+      packets_received      = "packets_received",
+      packets_dropped       = "packets_dropped",
+      events_emitted        = "events_emitted",
+      events_limited        = "events_limited",
+      packets_deduplicated  = "packets_deduplicated",
+      parse_errors          = "parse_errors",
+      cache_evictions       = "cache_evictions",
+      geo_db_month          = "geo_db_month",
+      started_ts            = "started_ts",
+    }
+  }
+  stage.labels {
+    values = { watch_kind = "kind", watch_schema = "schema" }
+  }
+  // Reject unsupported schema versions and all kinds except attempt/health.
+  stage.match {
+    selector = "{job=\"security-watch\",watch_kind!~\"attempt|health\"}"
+    action   = "drop"
+  }
+  stage.match {
+    selector = "{job=\"security-watch\",watch_schema!=\"1\"}"
+    action   = "drop"
+  }
+  stage.label_drop {
+    values = ["watch_kind", "watch_schema"]
+  }
+  // Rebuild the output from canonical keys only; safe JSON encoding prevents
+  // quotes or control characters in metadata from escaping the log record.
+  stage.template {
+    source = "safe_event"
+    template = "{{ pick (fromJson .Entry) \"schema\" \"kind\" \"ts\" \"interface\" \"src_ip\" \"dst_ip\" \"src_port\" \"dst_port\" \"protocol\" \"attempt_type\" \"ip_version\" \"ttl\" \"decision\" \"geo_status\" \"country\" \"country_code\" \"city\" \"latitude\" \"longitude\" \"asn\" \"as_org\" \"packets_received\" \"packets_dropped\" \"events_emitted\" \"events_limited\" \"packets_deduplicated\" \"parse_errors\" \"frames_unclassified\" \"tcp_ack_seen\" \"cache_evictions\" \"coverage\" \"geo_db_month\" \"started_ts\" | toJson }}"
+  }
+  stage.output {
+    source = "safe_event"
+  }
+  stage.label_keep {
+    values = ["job", "host"]
+  }
+  stage.label_drop {
+    values = ["service_name", "detected_level", "filename", "watch_kind", "watch_schema"]
+  }
+  forward_to = [loki.write.local.receiver]
+}

@@ -1,0 +1,32 @@
+[Unit]
+Description=Hermes Security Watch packet metadata collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes-watch
+Group=hermes-watch
+EnvironmentFile=/etc/hermes-security-watch/collector.env
+ExecStart=/usr/bin/python3 /usr/local/lib/hermes-security-watch/collector.py --interface ${WATCH_INTERFACE} --city-db ${CITY_DB} --asn-db ${ASN_DB} --dedup-seconds 30 --max-events-per-second 200 --health-interval 30
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_PACKET
+CapabilityBoundingSet=CAP_NET_RAW
+AmbientCapabilities=CAP_NET_RAW
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=256M
+CPUQuota=30%
+LogRateLimitIntervalSec=0
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

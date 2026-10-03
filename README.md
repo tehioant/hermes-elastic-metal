@@ -36,7 +36,9 @@ context.
   `healthcheck.sh`, `ship.sh`; `install-security-dashboard.sh` is an opt-in,
   isolated Loki/Alloy/Grafana stack ([security dashboard runbook](docs/runbooks/security-dashboard.md));
   `install-netdata-grafana.sh` connects local Netdata metrics to that private
-  Grafana ([Netdata integration runbook](docs/runbooks/netdata-grafana.md))
+  Grafana ([Netdata integration runbook](docs/runbooks/netdata-grafana.md));
+  `install-security-watch.sh` adds inbound packet-header metadata and local GeoIP
+  to the private Server Watch dashboard ([watch runbook](docs/runbooks/security-watch.md))
 - `config/` — host configuration including the localhost-only Netdata dashboard
   and security collection/provisioning files
   ([maintenance runbook](docs/runbooks/maintenance.md#host-metrics-netdata))
