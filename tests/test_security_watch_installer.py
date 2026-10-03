@@ -84,8 +84,12 @@ class SecurityWatchInstallerTest(unittest.TestCase):
             marker.write_text("hermes-security-dashboard-managed-v1\n")
             alloy = root / "etc/hermes-security-dashboard/config.alloy"
             alloy.parent.mkdir(parents=True)
-            original = subprocess.run(["git", "show", "origin/main:config/security-dashboard/config.alloy"],
-                                      cwd=ROOT, check=True, text=True, capture_output=True).stdout
+            # Reconstruct the reviewed base bytes without requiring remote refs
+            # or history, which actions/checkout's shallow PR checkout omits.
+            original = (ROOT / "config/security-dashboard/config.alloy").read_text().split(
+                "\n// Server Watch journal reader", 1)[0]
+            self.assertEqual(hashlib.sha256(original.encode()).hexdigest(),
+                             "5e4f0e91604eaa7b930ff7f03dae98e27dd78b1cb61024a8dd86a61defcbae43")
             alloy.write_text(original)
             old_dashboard = root / "etc/hermes-security-dashboard/dashboards/operator.json"
             old_dashboard.parent.mkdir(parents=True)
