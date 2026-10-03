@@ -18,6 +18,11 @@ on:
       - "tests/test_netdata_grafana.py"
       - "tests/netdata_grafana_smoke.py"
       - "docs/runbooks/netdata-grafana.md"
+      - "config/security-watch/**"
+      - "scripts/*security-watch*"
+      - "systemd/hermes-security-watch*.timer"
+      - "tests/*security_watch*.py"
+      - "docs/runbooks/security-watch.md"
       - ".github/workflows/security-dashboard.yml"
   push:
     branches: [main]
@@ -36,6 +41,11 @@ on:
       - "tests/test_netdata_grafana.py"
       - "tests/netdata_grafana_smoke.py"
       - "docs/runbooks/netdata-grafana.md"
+      - "config/security-watch/**"
+      - "scripts/*security-watch*"
+      - "systemd/hermes-security-watch*.timer"
+      - "tests/*security_watch*.py"
+      - "docs/runbooks/security-watch.md"
       - ".github/workflows/security-dashboard.yml"
 
 permissions:
@@ -52,16 +62,30 @@ jobs:
           curl -fsSL https://apt.grafana.com/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
           echo 'deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main' | sudo tee /etc/apt/sources.list.d/grafana.list >/dev/null
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends alloy grafana prometheus shellcheck systemd-journal-remote
+          sudo apt-get install -y --no-install-recommends alloy grafana prometheus shellcheck systemd-journal-remote python3-maxminddb libpcap0.8t64 iproute2
       - name: Run dashboard unit and installer guard tests
         run: python3 -m unittest discover -s tests -p 'test_security_dashboard*.py' -v
       - name: Run Netdata bridge configuration/installer tests
         run: python3 -m unittest tests.test_netdata_grafana -v
+      - name: Run Security Watch unit and installer tests
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_security_watch*.py' -v
       - name: Validate local Prometheus scrape config
         run: promtool check config config/netdata-grafana/prometheus.yml
       - name: Check installer and ship shell
-        run: shellcheck scripts/install-security-dashboard.sh scripts/install-netdata-grafana.sh scripts/ship.sh
+        run: shellcheck scripts/install-security-dashboard.sh scripts/install-netdata-grafana.sh scripts/install-security-watch.sh scripts/ship.sh
       - name: Exercise real Loki, Alloy, Grafana and provisioned dashboard
         env:
           TMPDIR: ${{ runner.temp }}
         run: python3 tests/security_dashboard_smoke.py
+      - name: Validate free offline GeoIP data and capture in isolated namespace
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          python3 scripts/update-security-watch-geoip.py --directory "$RUNNER_TEMP/watch-geoip"
+          sudo --preserve-env=TMPDIR unshare -n -- /usr/bin/python3 tests/security_watch_capture_smoke.py --allow-isolated-root --city-db "$RUNNER_TEMP/watch-geoip/city.mmdb" --asn-db "$RUNNER_TEMP/watch-geoip/asn.mmdb" --events-output "$RUNNER_TEMP/watch-events.jsonl"
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/watch-events.jsonl"
+      - name: Exercise captured watch metadata through journal, Alloy, Loki and Grafana
+        env:
+          TMPDIR: ${{ runner.temp }}
+          SECURITY_WATCH_EVENTS: ${{ runner.temp }}/watch-events.jsonl
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/security_dashboard_smoke.py

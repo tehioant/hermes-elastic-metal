@@ -1,0 +1,23 @@
+[Unit]
+Description=Update Hermes Security Watch DB-IP Lite GeoIP databases
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /usr/local/lib/hermes-security-watch/update-security-watch-geoip.py --directory /var/lib/hermes-security-watch/geoip
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/hermes-security-watch/geoip
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0022
+TimeoutStartSec=15min

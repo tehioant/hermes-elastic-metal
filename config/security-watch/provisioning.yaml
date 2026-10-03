@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: Server Watch
+    orgId: 1
+    folder: Security
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /etc/hermes-security-dashboard/watch-dashboards
+      foldersFromFilesStructure: false
