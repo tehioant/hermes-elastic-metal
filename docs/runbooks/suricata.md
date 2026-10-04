@@ -105,7 +105,10 @@ Suricata 8's native Rust `suricatasc` takes the socket as a positional argument;
 legacy `-s` is not supported by Ubuntu's 8.0.3 build.
 
 A separate five-minute timer invokes only `/etc/hermes-suricata/logrotate.conf`
-with its own root-protected state file. Each raw log rotates at 50 MiB with seven
+with its own root-protected state file. Its root service explicitly retains
+ambient `CAP_SETUID` so logrotate's configured `su hermes-suricata hermes-suricata`
+can switch effective UID under systemd; `NoNewPrivileges` and the filesystem
+sandbox remain enabled. Each raw log rotates at 50 MiB with seven
 archives, compression and one delayed-compression generation. Before renaming,
 logrotate records which services were active, stops the filter, then synchronously
 stops the sensor. Only after the writer is closed does it publish a device/inode
