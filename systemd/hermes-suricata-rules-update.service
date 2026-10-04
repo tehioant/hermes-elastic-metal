@@ -1,0 +1,25 @@
+[Unit]
+Description=Hermes free ET Open validated alert-only rules update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/lib/hermes-suricata/update-rules.sh
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+ReadWritePaths=/etc/hermes-suricata /var/lib/hermes-suricata/rules /var/lib/hermes-suricata/update
+MemoryMax=1G
+CPUQuota=100%
+Nice=10
+TimeoutStartSec=20min

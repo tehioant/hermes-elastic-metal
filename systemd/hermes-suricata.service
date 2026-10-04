@@ -1,0 +1,35 @@
+[Unit]
+Description=Hermes passive eno1 Suricata IDS (not IPS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes-suricata
+Group=hermes-suricata
+ExecStart=/usr/bin/suricata --af-packet=eno1 --runmode=workers -c /etc/hermes-suricata/suricata.yaml
+Restart=on-failure
+RestartSec=10
+UMask=0027
+RuntimeDirectory=hermes-suricata
+RuntimeDirectoryMode=0750
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_PACKET AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/log/hermes-suricata /run/hermes-suricata
+MemoryMax=1G
+CPUQuota=150%
+Nice=10
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

@@ -38,7 +38,12 @@ context.
   `install-netdata-grafana.sh` connects local Netdata metrics to that private
   Grafana ([Netdata integration runbook](docs/runbooks/netdata-grafana.md));
   `install-security-watch.sh` adds inbound packet-header metadata and local GeoIP
-  to the private Server Watch dashboard ([watch runbook](docs/runbooks/security-watch.md))
+  to the private Server Watch dashboard ([watch runbook](docs/runbooks/security-watch.md));
+  `install-suricata.sh` adds passive network detection on an explicitly selected
+  interface ([Suricata runbook](docs/runbooks/suricata.md)); `install-wazuh.sh`
+  installs a private Wazuh stack and native host agent
+  ([Wazuh runbook](docs/runbooks/wazuh.md)). These are independent opt-ins, not
+  merge-triggered deployments; they do not change the firewall or existing Grafana.
 - `config/` — host configuration including the localhost-only Netdata dashboard
   and security collection/provisioning files
   ([maintenance runbook](docs/runbooks/maintenance.md#host-metrics-netdata))

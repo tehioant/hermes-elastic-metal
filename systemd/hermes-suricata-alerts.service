@@ -1,0 +1,28 @@
+[Unit]
+Description=Hermes Suricata strict alert metadata filter
+After=hermes-suricata.service
+Requires=hermes-suricata.service
+
+[Service]
+Type=simple
+User=hermes-suricata
+Group=hermes-suricata
+ExecStart=/usr/bin/python3 /usr/local/lib/hermes-suricata/alerts.py --input /var/log/hermes-suricata/eve.json --output /var/log/hermes-suricata/alerts.json --state /var/lib/hermes-suricata/filter/filter.json --rotation-state /var/lib/hermes-suricata/rotation.json
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/var/log/hermes-suricata /var/lib/hermes-suricata/filter
+MemoryMax=128M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target

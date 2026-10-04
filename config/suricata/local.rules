@@ -1,0 +1,1 @@
+alert udp any any -> any any (msg:"Hermes IDS offline smoke"; content:"HERMES_IDS_SMOKE_"; classtype:misc-activity; sid:9900001; rev:1;)

@@ -12,6 +12,8 @@ on:
       - "!tests/test_netdata_grafana.py"
       - "!tests/netdata_grafana_smoke.py"
       - "!tests/*security_watch*.py"
+      - "!tests/test_wazuh*.py"
+      - "!tests/*suricata*.py"
       - ".mise.toml"
       - ".github/workflows/ci.yml"
 
@@ -45,5 +47,9 @@ jobs:
         run: terraform -chdir=terraform test -no-color -filter=tests/portfolio_dns.tftest.hcl
       - name: Plan
         run: terraform -chdir=terraform plan -input=false -no-color -lock-timeout=10m
+      - name: Install configuration-test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml python3-bcrypt
       - name: Test infrastructure configuration
-        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+        run: PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
