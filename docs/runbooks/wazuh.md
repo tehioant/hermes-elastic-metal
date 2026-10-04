@@ -76,7 +76,22 @@ Official manager initialization sets the generated `wazuh-wui` password and
 randomizes the unused default `wazuh` account before starting the API.
 
 TLS certificates cover `localhost` and `127.0.0.1`, plus the official indexer/admin
-DNs. Indexer and dashboard readiness validate the generated CA. The upstream
+DNs. The CA explicitly includes critical `basicConstraints=CA:TRUE`, critical
+`keyUsage=keyCertSign,cRLSign`, and a subject key identifier. Every rendered leaf
+must pass OpenSSL `-x509_strict` validation; indexer/dashboard readiness retains
+Python's default certificate and hostname verification, including strict TLS on
+Python 3.14.
+
+On an owned retry, a legacy CA missing the key-usage extension is reissued and
+atomically replaced using its **existing private key**, preserving its subject,
+serial, public key, and original validity dates (no renewal). Existing leaf
+certificates/keys, passwords, and `client.keys` remain unchanged. The repaired
+**public CA certificate fingerprint changes**; operators pinning that fingerprint
+must verify and update it through their trusted local/SSH channel. Compliant CAs
+are not reissued. Other certificate errors still fail validation; do not disable
+strict verification or delete identity files to work around a failed install.
+
+Indexer and dashboard readiness validate the generated CA. The upstream
 manager API uses its private self-signed certificate; only its localhost
 readiness probe skips certificate verification. Do not expose that API remotely.
 The installer authenticates indexer/API and validates dashboard TLS before

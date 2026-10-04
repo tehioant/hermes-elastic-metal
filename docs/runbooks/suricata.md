@@ -81,8 +81,14 @@ private Grafana health before/after installation; those must remain unchanged.
 `hermes-suricata-rules-update.timer` runs daily at 04:17 UTC with up to 30 minutes
 jitter and persistent catch-up. A dedicated config selects only free ET Open;
 additional data-dir sources are refused. Download/merge happens in staging with
-no automatic reload. Every active rule must be `alert`; `pass`, `drop` and
-`reject` fail closed. The candidate plus local rules is tested with Suricata
+no automatic reload. A dedicated staging `disable.conf`, passed explicitly via
+`--disable-conf`, excludes `drop`, `pass`, `reject`, `rejectsrc`, `rejectdst` and
+`rejectboth` actions from merged rules (including distro rules such as
+`stream-events.rules` SID 2210057). It does not convert them to alerts or adopt
+`/etc/suricata/disable.conf`. The independent post-update gate still requires every
+active rule to be `alert`, including local rules; unexpected actions or any
+non-alert rule re-enabled by dependency handling fail closed. The candidate plus
+local rules is tested with Suricata
 `-T --init-errors-fatal -S` before atomic promotion. Download, action-gate or
 validation failure leaves the previous rules untouched. A blocking Unix-socket
 reload checks the JSON return and restores the prior on-disk rules on failure;

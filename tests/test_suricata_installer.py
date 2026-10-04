@@ -105,6 +105,15 @@ ensure_packages
 
 
 class RuleUpdateTests(unittest.TestCase):
+    def test_updater_excludes_non_alert_actions_with_staging_disable_config(self):
+        text = (REPO / 'scripts/update-suricata-rules.sh').read_text()
+        pattern = r're: ^(?:drop|pass|reject(?:src|dst|both)?)\s+'
+        self.assertIn(pattern, text)
+        self.assertIn('> "${stage}/disable.conf"', text)
+        self.assertIn('--disable-conf "${stage}/disable.conf"', text)
+        self.assertLess(text.index('--disable-conf'), text.index('--data-dir'))
+        self.assertLess(text.index('--disable-conf'), text.index('check-rules'))
+
     def test_rule_update_exists_and_rejects_non_alert_before_promotion(self):
         updater = REPO / 'scripts/update-suricata-rules.sh'
         self.assertTrue(updater.exists(), 'atomic rule updater missing')

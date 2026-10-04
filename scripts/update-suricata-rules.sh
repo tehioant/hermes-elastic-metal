@@ -36,7 +36,12 @@ if p.exists() and any(p.iterdir()):
     sys.exit('Additional rule sources are forbidden; only free ET Open is approved')
 PY
 printf '%s\n' 'sources:' '  - https://rules.emergingthreats.net/open/suricata-%(__version__)s/emerging.rules.tar.gz' > "${stage}/update.yaml"
+# Distro rules can contain IPS actions even when ET Open itself is alert-only.
+# Exclude known non-alert actions, never rewrite them into alerts. The independent
+# action gate below still rejects unexpected actions or updater regressions.
+printf '%s\n' 're: ^(?:drop|pass|reject(?:src|dst|both)?)\s+' > "${stage}/disable.conf"
 /usr/bin/suricata-update --config "${stage}/update.yaml" \
+  --disable-conf "${stage}/disable.conf" \
   --suricata /usr/bin/suricata --suricata-conf "${ETC}/suricata.yaml" \
   --data-dir "${STATE}/update" --output "${stage}" --no-reload --no-test --fail
 /usr/bin/python3 "${LIB}/config.py" check-rules "${stage}/suricata.rules" "${ETC}/local.rules"
