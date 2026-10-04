@@ -21,6 +21,93 @@ class InstallerTests(unittest.TestCase):
         return subprocess.run(["bash", str(SCRIPT), *args, "--root", str(self.root)],
                               capture_output=True, text=True)
 
+    def assert_strict_tls(self, config):
+        import ssl
+        ca = config / "certs/root-ca.pem"
+        for name in ("indexer", "manager", "dashboard", "admin"):
+            verified = subprocess.run(["openssl", "verify", "-x509_strict", "-CAfile", str(ca),
+                                       "-verify_ip", "127.0.0.1", str(config / f"certs/{name}.pem")],
+                                      capture_output=True, text=True)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+        # Exercise a real TLS handshake without opening a host listener.
+        client_context = ssl.create_default_context(cafile=str(ca))
+        client_context.verify_flags |= ssl.VERIFY_X509_STRICT
+        self.assertTrue(client_context.check_hostname)
+        self.assertEqual(client_context.verify_mode, ssl.CERT_REQUIRED)
+        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_context.load_cert_chain(str(config / "certs/indexer.pem"),
+                                       str(config / "certs/indexer.key"))
+        client_in, client_out, server_in, server_out = (ssl.MemoryBIO() for _ in range(4))
+        client = client_context.wrap_bio(client_in, client_out, server_hostname="127.0.0.1")
+        server = server_context.wrap_bio(server_in, server_out, server_side=True)
+        done = set()
+        for _ in range(20):
+            for name, peer in (("client", client), ("server", server)):
+                if name not in done:
+                    try:
+                        peer.do_handshake()
+                        done.add(name)
+                    except ssl.SSLWantReadError:
+                        pass
+            server_in.write(client_out.read())
+            client_in.write(server_out.read())
+            if len(done) == 2:
+                break
+        self.assertEqual(done, {"client", "server"})
+        self.assertIsNotNone(client.version())
+
+    def test_new_render_certificates_pass_strict_tls(self):
+        result = self.cli("--render-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_strict_tls(self.root / "etc/hermes-wazuh")
+
+    def test_owned_legacy_ca_repair_preserves_established_identity(self):
+        result = self.cli("--render-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = self.root / "etc/hermes-wazuh"
+        ca, key = config / "certs/root-ca.pem", config / "certs/root-ca.key"
+        # Reproduce the original openssl req CA: CA:TRUE and SKI, but no KU.
+        legacy_config = self.root / "legacy-ca.cnf"
+        legacy_config.write_text("[req]\ndistinguished_name=dn\nx509_extensions=ca\n"
+                                 "[dn]\n[ca]\nbasicConstraints=critical,CA:TRUE\n"
+                                 "subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n")
+        generated = subprocess.run(["openssl", "req", "-x509", "-key", str(key), "-sha256",
+                                    "-days", "3650", "-subj", "/CN=Hermes Wazuh CA/O=Wazuh/C=US",
+                                    "-config", str(legacy_config), "-out", str(ca)], capture_output=True)
+        self.assertEqual(generated.returncode, 0, generated.stderr)
+        rejected = subprocess.run(["openssl", "verify", "-x509_strict", "-CAfile", str(ca),
+                                   str(config / "certs/indexer.pem")], capture_output=True, text=True)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("CA cert does not include key usage extension", rejected.stderr)
+        identity = ["credentials.json", "client.keys", "certs/root-ca.key"]
+        identity += [f"certs/{name}{suffix}" for name in ("indexer", "manager", "dashboard", "admin")
+                     for suffix in (".key", ".pem")]
+        before = {name: (config / name).read_bytes() for name in identity}
+        original_ca = ca.read_bytes()
+
+        def ca_identity():
+            inspected = subprocess.run(["openssl", "x509", "-in", str(ca), "-noout",
+                                        "-subject", "-issuer", "-serial", "-dates", "-pubkey",
+                                        "-ext", "subjectKeyIdentifier"], capture_output=True)
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            return inspected.stdout
+
+        original_metadata = ca_identity()
+        repaired = self.cli("--render-only")
+        self.assertEqual(repaired.returncode, 0, repaired.stderr)
+        self.assertTrue(ca.read_bytes() != original_ca, "legacy public CA must be reissued")
+        self.assertEqual(ca_identity(), original_metadata,
+                         "CA subject/issuer/serial/dates/public key/SKI must not change")
+        for name in identity:
+            self.assertTrue((config / name).read_bytes() == before[name], f"identity changed: {name}")
+        self.assert_strict_tls(config)
+        repaired_ca = ca.read_bytes()
+        retried = self.cli("--render-only")
+        self.assertEqual(retried.returncode, 0, retried.stderr)
+        self.assertTrue(ca.read_bytes() == repaired_ca, "compliant CA must not be reissued on retry")
+        for name in identity:
+            self.assertTrue((config / name).read_bytes() == before[name], f"retry changed: {name}")
+
     def test_builtin_ioc_lists_are_registered(self):
         import xml.etree.ElementTree as ET
         manager = ET.parse(REPO / 'config/wazuh/manager.xml').getroot()

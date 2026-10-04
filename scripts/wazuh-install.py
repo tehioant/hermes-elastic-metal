@@ -117,7 +117,22 @@ def certificates(config):
         raise RuntimeError("incomplete CA; recover existing CA rather than rotating identity")
     if not ca.exists():
         run("openssl", "req", "-x509", "-newkey", "rsa:3072", "-nodes", "-sha256", "-days", "3650",
-            "-subj", "/CN=Hermes Wazuh CA/O=Wazuh/C=US", "-keyout", str(key), "-out", str(ca))
+            "-subj", "/CN=Hermes Wazuh CA/O=Wazuh/C=US", "-keyout", str(key), "-out", str(ca),
+            "-addext", "basicConstraints=critical,CA:TRUE",
+            "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+            "-addext", "subjectKeyIdentifier=hash")
+    if b"X509v3 Key Usage:" not in run("openssl", "x509", "-in", str(ca), "-noout", "-ext", "keyUsage"):
+        # Repair the legacy public certificate, not its trust key or validity.
+        # x509 retains the input subject/serial; preserve_dates forbids renewal.
+        with tempfile.TemporaryDirectory(dir=config) as tmp:
+            ext = Path(tmp) / "ca-extensions.cnf"
+            put(ext, "basicConstraints=critical,CA:TRUE\n"
+                     "keyUsage=critical,keyCertSign,cRLSign\n"
+                     "subjectKeyIdentifier=hash\n"
+                     "authorityKeyIdentifier=keyid:always\n")
+            repaired = run("openssl", "x509", "-in", str(ca), "-signkey", str(key),
+                           "-preserve_dates", "-sha256", "-extfile", str(ext))
+            put(ca, repaired, 0o644)
     os.chmod(key, 0o600)
     for name, cn in (("indexer", "wazuh.indexer"), ("manager", "wazuh.manager"), ("dashboard", "wazuh.dashboard"), ("admin", "admin")):
         leaf, private = certs / (name + ".pem"), certs / (name + ".key")
@@ -133,7 +148,7 @@ def certificates(config):
                     "-set_serial", str(secrets.randbits(128)), "-out", str(leaf), "-days", "825", "-sha256", "-extfile", str(ext))
         if not private.exists():
             raise RuntimeError(f"missing private key for existing certificate: {name}")
-        run("openssl", "verify", "-CAfile", str(ca), "-verify_ip", "127.0.0.1", str(leaf))
+        run("openssl", "verify", "-x509_strict", "-CAfile", str(ca), "-verify_ip", "127.0.0.1", str(leaf))
         # Only root can traverse host directory; group 0 lets unprivileged container users read mounted keys.
         os.chmod(private, 0o640)
         os.chmod(leaf, 0o644)
