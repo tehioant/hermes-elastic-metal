@@ -92,6 +92,14 @@ class AlertPrivacyTests(unittest.TestCase):
             self.assertEqual(reader.file.tell(), source.stat().st_size)
             reader.close()
 
+    def test_logrotate_can_switch_to_configured_log_owner(self):
+        text = (ROOT / 'systemd/hermes-suricata-logrotate.service').read_text()
+        capabilities = next((line.split('=', 1)[1].split() for line in text.splitlines()
+                             if line.startswith('AmbientCapabilities=')), [])
+        self.assertIn('CAP_SETUID', capabilities,
+                      'Explicit User=root can otherwise lose effective CAP_SETUID under systemd')
+        self.assertIn('NoNewPrivileges=true', text)
+
     def test_logrotate_sandbox_can_write_root_owned_rotation_witness(self):
         text = (ROOT / 'systemd/hermes-suricata-logrotate.service').read_text()
         paths = next(line.split('=', 1)[1].split() for line in text.splitlines()

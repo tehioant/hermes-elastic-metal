@@ -5,6 +5,7 @@ Description=Bound Hermes Suricata private raw IDS logs
 Type=oneshot
 User=root
 Group=root
+AmbientCapabilities=CAP_SETUID
 ExecStart=/usr/sbin/logrotate --state /etc/hermes-suricata/logrotate.state /etc/hermes-suricata/logrotate.conf
 UMask=0027
 NoNewPrivileges=true
