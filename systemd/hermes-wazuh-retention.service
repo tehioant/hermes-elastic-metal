@@ -1,0 +1,15 @@
+[Unit]
+Description=Retain Wazuh alerts and compressed manager logs for 30 days
+Requires=hermes-wazuh.service
+After=hermes-wazuh.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /etc/hermes-wazuh/wazuh-retention.py
+UMask=0077
+Nice=10
+MemoryMax=256M
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes

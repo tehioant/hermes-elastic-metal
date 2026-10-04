@@ -1,0 +1,17 @@
+host: ['127.0.0.1']
+port: 55000
+https:
+  enabled: yes
+  key: server.key
+  cert: server.crt
+logs:
+  level: warning
+  max_size:
+    enabled: true
+    size: 1M
+upload_configuration:
+  remote_commands:
+    localfile:
+      allow: no
+    wodle_command:
+      allow: no

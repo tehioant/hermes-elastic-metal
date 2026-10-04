@@ -1,0 +1,31 @@
+<ossec_config>
+  <client>
+    <server><address>127.0.0.1</address><port>1514</port><protocol>tcp</protocol></server>
+    <crypto_method>aes</crypto_method>
+    <enrollment><enabled>no</enabled></enrollment>
+  </client>
+  <active-response><disabled>yes</disabled></active-response>
+  <rootcheck><disabled>yes</disabled></rootcheck>
+  <sca><enabled>no</enabled></sca>
+  <wodle name="syscollector">
+    <disabled>no</disabled><interval>1h</interval><scan_on_start>yes</scan_on_start>
+    <hardware>yes</hardware><os>yes</os><packages>yes</packages>
+    <network>no</network><ports all="no">no</ports><processes>no</processes>
+    <synchronization><max_eps>10</max_eps></synchronization>
+  </wodle>
+  <syscheck>
+    <disabled>no</disabled><frequency>43200</frequency><scan_on_start>yes</scan_on_start>
+    <directories realtime="yes" report_changes="no" check_all="yes">/etc/ssh</directories>
+    <directories realtime="yes" report_changes="no" check_all="yes">/etc/systemd/system</directories>
+    <directories realtime="yes" report_changes="no" check_all="yes">/etc/ufw</directories>
+    <directories realtime="yes" report_changes="no" check_all="yes">/var/lib/hermes-wazuh/fim-test</directories>
+    <skip_nfs>yes</skip_nfs><skip_dev>yes</skip_dev><skip_proc>yes</skip_proc><skip_sys>yes</skip_sys>
+    <max_eps>20</max_eps>
+  </syscheck>
+  <localfile>
+    <location>journald</location><log_format>journald</log_format>
+    <filter field="_COMM" ignore_if_missing="no">^sshd(-session)?$</filter>
+  </localfile>
+  <localfile><location>/var/log/fail2ban.log</location><log_format>syslog</log_format></localfile>
+  <localfile><location>/var/log/hermes-suricata/alerts.json</location><log_format>json</log_format></localfile>
+</ossec_config>

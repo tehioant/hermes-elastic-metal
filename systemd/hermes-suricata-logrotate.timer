@@ -1,0 +1,11 @@
+[Unit]
+Description=Check bounded Hermes IDS log rotation every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=hermes-suricata-logrotate.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=Private Wazuh single-node security stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/hermes-wazuh
+ExecStart=/usr/bin/docker compose -p hermes-wazuh -f /etc/hermes-wazuh/compose.yml up --remove-orphans --abort-on-container-exit
+ExecStop=/usr/bin/docker compose -p hermes-wazuh -f /etc/hermes-wazuh/compose.yml down --timeout 60
+Restart=always
+RestartSec=15
+TimeoutStartSec=0
+TimeoutStopSec=120
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,56 @@
+name: Security IDS CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'config/wazuh/**'
+      - 'config/suricata/**'
+      - 'scripts/*wazuh*'
+      - 'scripts/*suricata*'
+      - 'systemd/hermes-wazuh*'
+      - 'systemd/hermes-suricata*'
+      - 'tests/test_wazuh*.py'
+      - 'tests/*suricata*.py'
+      - 'docs/runbooks/wazuh.md'
+      - 'docs/runbooks/suricata.md'
+      - '.github/workflows/security-ids.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'config/wazuh/**'
+      - 'config/suricata/**'
+      - 'scripts/*wazuh*'
+      - 'scripts/*suricata*'
+      - 'systemd/hermes-wazuh*'
+      - 'systemd/hermes-suricata*'
+      - 'tests/test_wazuh*.py'
+      - 'tests/*suricata*.py'
+      - '.github/workflows/security-ids.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  security-ids:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install verification dependencies
+        run: |
+          sudo apt-get update
+          sudo systemctl mask suricata.service
+          sudo apt-get install -y --no-install-recommends python3-yaml python3-bcrypt python3-maxminddb shellcheck suricata
+      - name: Run security configuration, installer and privacy tests
+        run: PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Check installer and rule-update scripts
+        run: shellcheck scripts/install-wazuh.sh scripts/install-suricata.sh scripts/update-suricata-rules.sh
+      - name: Exercise real offline detector and privacy filter without network packets
+        run: |
+          /usr/bin/python3 -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/"suricata-smoke"; p.mkdir(); (p/"addresses.json").write_text(json.dumps([{"addr_info":[{"scope":"global","family":"inet","local":"198.51.100.1"}]}]))'
+          root="$RUNNER_TEMP/suricata-smoke"
+          /usr/bin/python3 scripts/suricata-config.py render --base /etc/suricata/suricata.yaml --output "$root/config.yaml" --interface eno1 --addresses-json "$root/addresses.json"
+          /usr/bin/python3 tests/suricata_smoke.py --config "$root/config.yaml" --rules config/suricata/local.rules --destination 198.51.100.1
+      - name: Check Python syntax without writing bytecode to checkout
+        run: |
+          /usr/bin/python3 -c 'import ast,pathlib; paths=[*pathlib.Path("scripts").glob("*wazuh*.py"),*pathlib.Path("scripts").glob("*suricata*.py"),pathlib.Path("tests/suricata_smoke.py")]; [ast.parse(p.read_text(), filename=str(p)) for p in paths]; print(f"Parsed {len(paths)} Python files")'

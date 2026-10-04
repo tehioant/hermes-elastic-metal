@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily free ET Open Suricata rules refresh
+
+[Timer]
+OnCalendar=*-*-* 04:17:00 UTC
+RandomizedDelaySec=30min
+Persistent=true
+Unit=hermes-suricata-rules-update.service
+
+[Install]
+WantedBy=timers.target
