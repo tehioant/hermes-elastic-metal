@@ -2,7 +2,7 @@
 lefthook = { version = "2.1.12", postinstall = "lefthook install" }
 
 just = "1.58.0"
-gh = "2.100.0"
+gh = "2.102.0"
 
 terraform = "1.13.5"
 shellcheck = "0.11.0"

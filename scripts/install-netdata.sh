@@ -8,7 +8,9 @@ readonly REPO_DIR
 readonly CONFIG_SRC="${REPO_DIR}/config/netdata/netdata.conf"
 readonly CONFIG_DST=/etc/netdata/netdata.conf
 readonly MANAGED_MARKER=/etc/netdata/.hermes-native-install
-readonly KICKSTART_URL=https://get.netdata.cloud/kickstart.sh
+readonly KICKSTART_COMMIT=77a391af6feda65eba3d87136c7ca37dab34872f
+readonly KICKSTART_URL="https://raw.githubusercontent.com/netdata/netdata/${KICKSTART_COMMIT}/packaging/installer/kickstart.sh"
+readonly KICKSTART_SHA256=2b3f4a7f00ab3b5192dea52cfbfe2c7f80aed3810a33ec8960a84922e622faca
 
 log()  { printf '📈 %s\n' "$*"; }
 fail() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -41,6 +43,7 @@ run_kickstart() {
   local installer status=0
   installer="$(mktemp)"
   curl -fsSL "${KICKSTART_URL}" -o "${installer}" \
+    && printf '%s  %s\n' "${KICKSTART_SHA256}" "${installer}" | sha256sum --check --quiet - \
     && DISABLE_TELEMETRY=1 bash "${installer}" --non-interactive --release-channel stable --native-only --auto-update \
     || status=$?
   rm -f "${installer}"

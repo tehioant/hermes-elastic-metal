@@ -7,8 +7,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REPO_DIR
 readonly NETDATA_FQDN="${NETDATA_FQDN:?NETDATA_FQDN is required}"
 readonly HERMES_ENV="${HERMES_ENV:-/home/ops/.hermes/.env}"
-readonly OAUTH2_PROXY_VERSION=v7.15.4
-readonly OAUTH2_PROXY_SHA256=4fbe902189aab713d9c0519b90a645032d4636ecb523dc36f5cc312d8ebef1e2
+readonly OAUTH2_PROXY_VERSION=v7.15.5
+readonly OAUTH2_PROXY_SHA256=f63f94bf72c5f46ab002a0a275aa8b3cf19b4d828aed08a13978cb9a62c3a1fd
 readonly OAUTH2_PROXY_RELEASE="oauth2-proxy-${OAUTH2_PROXY_VERSION}.linux-amd64"
 readonly OAUTH2_PROXY_URL="https://github.com/oauth2-proxy/oauth2-proxy/releases/download/${OAUTH2_PROXY_VERSION}/${OAUTH2_PROXY_RELEASE}.tar.gz"
 readonly OAUTH2_PROXY_BIN=/usr/local/bin/oauth2-proxy
