@@ -43,6 +43,12 @@ warn_if_no_avx2() {
   fi
 }
 
+disable_cloud_init() {
+  [[ -d /etc/cloud ]] || return 0
+  log "disabling cloud-init (Elastic Metal provides no datasource)"
+  touch /etc/cloud/cloud-init.disabled
+}
+
 install_base_packages() {
   log "installing base packages"
   export DEBIAN_FRONTEND=noninteractive
@@ -215,6 +221,7 @@ main() {
   require_root
   assert_supported_os
   warn_if_no_avx2
+  disable_cloud_init
   install_base_packages
   install_docker
   configure_docker_daemon

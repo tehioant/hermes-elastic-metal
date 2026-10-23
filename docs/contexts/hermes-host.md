@@ -92,6 +92,10 @@ shellcheck scripts/*.sh config/docker/*.sh
 
 ## Hard constraints
 - Elastic Metal: no snapshots, no cloud-init, no live migration.
+  The Ubuntu image still ships cloud-init with `datasource_list: [Scaleway]`,
+  but the metadata API (`169.254.42.42`) is unreachable, so cloud-init ≥ 26
+  fails `cloud-init-main.service` every boot. `bootstrap.sh` writes
+  `/etc/cloud/cloud-init.disabled`; `cloud-init status` must say `disabled`.
 - Changing `os` in Terraform **reinstalls** (wipes disks); changing `offer`
   **recreates**. `prevent_destroy = true` blocks accidental destroy.
 - `reinstall_on_config_changes = false`: changing `ssh_key_ids` in TF has no
